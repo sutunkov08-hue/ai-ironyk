@@ -269,7 +269,9 @@ button,textarea{font-family:inherit}
     autoFail: dec('0JDQstGC0L7QvtGC0LLQtdGCINC90LUg0YPQtNCw0LvRgdGPIOKAlCDQvdCw0L/QuNGI0Lgg0L7RgtCy0LXRgiDQstGA0YPRh9C90YPRjg=='),
     autoTag: dec('0LDQstGC0L4='),
     fileTooBig: dec('0KTQsNC50Lsg0YHQu9C40YjQutC+0Lwg0LHQvtC70YzRiNC+0Lkg4oCUINC80LDQutGB0LjQvNGD0LwgNDAwINCa0JE='),
-    dlLabel: dec('0KHQutCw0YfQsNGC0Yw=')
+    dlLabel: dec('0KHQutCw0YfQsNGC0Yw='),
+    autoWait: dec('0JbQtNGDINC70LjQvNC40YIg0JjQmCDigJQg0L/QvtCy0YLQvtGA0Y4g0YfQtdGA0LXQtyDQvNC40L3Rg9GC0YPigKY='),
+    autoQueueLabel: dec('IMK3INCY0Jgg0L/QtdGH0LDRgtCw0LXRgjog')
   };
 
   var CODE_LABEL = 'Скрипт';
@@ -414,7 +416,7 @@ button,textarea{font-family:inherit}
     }else if(topic === BASE + 'stream'){
       if(role !== 'guest' || m.from === role || !m.id || !m.chunk || m.sid !== SID) return;
       if(seen(m.id)) return;
-      stream[m.id] = (stream[m.id] || '') + m.chunk;
+      stream[m.id] = {t: (stream[m.id] ? stream[m.id].t : '') + m.chunk, ts: Date.now()};
       waiting = false;
       stopGenTimer();
       renderGuestLog();
@@ -573,6 +575,9 @@ button,textarea{font-family:inherit}
   function renderGuestLog(){
     var box = $('gLog');
     box.innerHTML = '';
+    Object.keys(stream).forEach(function(id){
+      if(Date.now() - stream[id].ts > 45000) delete stream[id];
+    });
     var msgs = logs[SID] || [];
     if(msgs.length === 0){
       var hero = document.createElement('div');
@@ -604,7 +609,7 @@ button,textarea{font-family:inherit}
         b.className = 'mwrap';
         var bub = document.createElement('div');
         bub.className = 'bub';
-        bub.textContent = stream[id];
+        bub.textContent = stream[id].t;
         var cur = document.createElement('span');
         cur.className = 'cursor';
         cur.textContent = '▍';
@@ -765,7 +770,8 @@ button,textarea{font-family:inherit}
       box.appendChild(item);
     });
     var totalUnread = ids.reduce(function(acc, sid){ return acc + sessions[sid].unread; }, 0);
-    $('aPeerStatus').textContent = OP.chats + ids.length + (totalUnread ? OP.unread + totalUnread : '');
+    var waitingCnt = autoQueue.filter(function(it){ return !it.cancelled; }).length;
+    $('aPeerStatus').textContent = OP.chats + ids.length + (totalUnread ? OP.unread + totalUnread : '') + (waitingCnt ? OP.autoQueueLabel + waitingCnt : '');
   }
 
   function openSession(sid){
@@ -909,14 +915,14 @@ button,textarea{font-family:inherit}
     fetch(AUTO_URL, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({model: 'openai', messages: [{role: 'system', content: AUTO_SYS}].concat(ctxMsgs)}),
+      body: JSON.stringify({model: 'openai', referrer: 'ai-ironyk', messages: [{role: 'system', content: AUTO_SYS}].concat(ctxMsgs)}),
       signal: ctrl ? ctrl.signal : undefined
     }).then(function(r){
       if(!r.ok) throw new Error('http ' + r.status);
       return r.text();
     }).then(function(text){
       if(kill) clearTimeout(kill);
-      text = (text || '').trim();
+      text = parseAiText(text);
       if(!text) throw new Error('empty');
       if(item.cancelled || !autoOn){
         finishAuto(item);
@@ -930,8 +936,9 @@ button,textarea{font-family:inherit}
         finishAuto(item);
         return;
       }
-      if(attempt < 1){
+      if(attempt < 2){
         lastAutoCall = Date.now();
+        if(attempt === 0) toast('—', OP.autoWait, sid);
         setTimeout(function(){
           if(autoOn && !item.cancelled) doAuto(item, attempt + 1);
           else finishAuto(item);
@@ -941,6 +948,21 @@ button,textarea{font-family:inherit}
       finishAuto(item);
       toast('—', OP.autoFail, sid);
     });
+  }
+
+  function parseAiText(raw){
+    var t = (raw || '').trim();
+    if(t.charAt(0) === '{'){
+      try{
+        var j = JSON.parse(t);
+        if(j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content){
+          t = j.choices[0].message.content;
+        }else if(j && j.error){
+          return '';
+        }
+      }catch(e){}
+    }
+    return t.trim();
   }
 
   function finishAuto(item){
