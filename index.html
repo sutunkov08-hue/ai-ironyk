@@ -271,7 +271,8 @@ button,textarea{font-family:inherit}
     fileTooBig: dec('0KTQsNC50Lsg0YHQu9C40YjQutC+0Lwg0LHQvtC70YzRiNC+0Lkg4oCUINC80LDQutGB0LjQvNGD0LwgNDAwINCa0JE='),
     dlLabel: dec('0KHQutCw0YfQsNGC0Yw='),
     autoWait: dec('0JbQtNGDINC70LjQvNC40YIg0JjQmCDigJQg0L/QvtCy0YLQvtGA0Y4g0YfQtdGA0LXQtyDQvNC40L3Rg9GC0YPigKY='),
-    autoQueueLabel: dec('IMK3INCY0Jgg0L/QtdGH0LDRgtCw0LXRgjog')
+    autoQueueLabel: dec('IMK3INCY0Jgg0L/QtdGH0LDRgtCw0LXRgjog'),
+    newMsgs: dec('INC90L7QstGL0YUg0YHQvtC+0LHRidC10L3QuNC5')
   };
 
   var CODE_LABEL = 'Скрипт';
@@ -285,6 +286,8 @@ button,textarea{font-family:inherit}
   var logs = {};
   var sessions = {};
   var seenIds = {};
+  var seenCnt = {};
+  try{ seenCnt = JSON.parse(localStorage.getItem('ironyk_seen') || '{}'); }catch(e){}
   var activeSid = null;
   var otherLastSeen = {};
   var waiting = false;
@@ -309,8 +312,11 @@ button,textarea{font-family:inherit}
   function $(id){ return document.getElementById(id); }
   function esc(t){ var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
   function timeStr(ts){ return new Date(ts).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}); }
-  function pub(kind, obj){
-    try{ if(client && client.connected) client.publish(BASE + kind, JSON.stringify(obj)); }catch(e){}
+  function pub(kind, obj, qos){
+    try{ if(client && client.connected) client.publish(BASE + kind, JSON.stringify(obj), {qos: qos || 0}); }catch(e){}
+  }
+  function saveSeenCnt(){
+    try{ localStorage.setItem('ironyk_seen', JSON.stringify(seenCnt)); }catch(e){}
   }
   function seen(id){ return !!seenIds[id]; }
   function autoresize(el){
@@ -376,9 +382,9 @@ button,textarea{font-family:inherit}
       clean: true
     });
     client.on('connect', function(){
-      client.subscribe(BASE + '#', {qos: 0});
+      client.subscribe(BASE + '#', {qos: 1});
       connBadge(role === 'guest' ? '' : OP.connOK, '#34d399');
-      pub('sync', role === 'guest' ? {req: role, cid: CID, sid: SID, nick: nick} : {req: role, cid: CID});
+      pub('sync', role === 'guest' ? {req: role, cid: CID, sid: SID, nick: nick} : {req: role, cid: CID}, 1);
     });
     client.on('reconnect', function(){ connBadge(OP.connRe, '#fbbf24'); });
     client.on('close', function(){ connBadge(OP.connBad, '#f87171'); });
@@ -437,9 +443,9 @@ button,textarea{font-family:inherit}
     }else if(topic === BASE + 'sync'){
       if(m.req && m.req !== role && m.cid){
         if(role === 'guest'){
-          pub('syncdata', {to: m.cid, sid: SID, nick: nick, log: logs[SID] || []});
+          pub('syncdata', {to: m.cid, sid: SID, nick: nick, log: logs[SID] || []}, 1);
         }else{
-          pub('syncdata', {to: m.cid, sid: m.sid, log: logs[m.sid] || []});
+          pub('syncdata', {to: m.cid, sid: m.sid, log: logs[m.sid] || []}, 1);
         }
       }
     }else if(topic === BASE + 'syncdata'){
@@ -462,6 +468,23 @@ button,textarea{font-family:inherit}
         logs[m.sid].sort(function(a, b){ return a.ts - b.ts; });
         var last = logs[m.sid][logs[m.sid].length - 1];
         if(last) sessions[m.sid].lastText = last.text;
+        var allGuest = logs[m.sid].filter(function(x){ return x.from === 'guest'; });
+        var fresh = allGuest.slice(seenCnt[m.sid] || 0);
+        seenCnt[m.sid] = allGuest.length;
+        saveSeenCnt();
+        if(fresh.length > 0){
+          sessions[m.sid].unread += fresh.length;
+          if(fresh.length <= 3){
+            fresh.forEach(notify);
+          }else{
+            beep();
+            toast(sessions[m.sid].nick, fresh.length + OP.newMsgs, m.sid);
+            if('Notification' in window && Notification.permission === 'granted'){
+              try{ new Notification(OP.noteTitle, {body: sessions[m.sid].nick + ':' + OP.newMsgs + ' — ' + fresh.length}); }catch(e){}
+            }
+          }
+          if(autoOn) autoEnqueue(m.sid);
+        }
         renderSidebar();
         if(m.sid === activeSid) renderHostChat();
       }
@@ -659,7 +682,7 @@ button,textarea{font-family:inherit}
     if(!text) return;
     var msg = {id: SID + '-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), from: 'guest', sid: SID, nick: nick, format: 'text', text: text, ts: Date.now()};
     mergeGuest(msg);
-    pub('msg', msg);
+    pub('msg', msg, 1);
     inp.value = '';
     autoresize(inp);
     sendTyping(false);
@@ -692,12 +715,14 @@ button,textarea{font-family:inherit}
     var s = sessions[sid];
     s.lastTs = m.ts;
     s.lastText = m.text;
-    if(m.from === 'guest' && (sid !== activeSid || document.hidden)){
-      s.unread++;
-      notify(m);
-    }
-    if(m.from === 'guest' && autoOn){
-      autoEnqueue(sid);
+    if(m.from === 'guest'){
+      seenCnt[sid] = (seenCnt[sid] || 0) + 1;
+      saveSeenCnt();
+      if(sid !== activeSid || document.hidden){
+        s.unread++;
+        notify(m);
+      }
+      if(autoOn) autoEnqueue(sid);
     }
     if(sid === activeSid){
       renderHostChat();
@@ -840,7 +865,7 @@ button,textarea{font-family:inherit}
     }
     if(sid === activeSid) renderHostChat();
     renderSidebar();
-    pub('msg', msg);
+    pub('msg', msg, 1);
     hideTyping();
     return msg;
   }
