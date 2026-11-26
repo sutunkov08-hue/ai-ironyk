@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>НейроChat — умный ИИ-собеседник</title>
+<title>ai-ironyk — чат с ИИ</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <style>
@@ -14,69 +14,112 @@ button{font-family:inherit}
 .hidden{display:none!important}
 
 /* ---------- Экран входа ---------- */
-#gate{display:flex;align-items:center;justify-content:center;height:100vh;background:linear-gradient(135deg,#6366f1 0%,#a855f7 50%,#ec4899 100%)}
+#gate{display:flex;align-items:center;justify-content:center;height:100vh;background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 50%,#db2777 100%)}
 .card{background:#fff;padding:40px 34px;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.25);width:min(420px,92vw);text-align:center}
 .logo{font-size:46px}
 .card h1{font-size:26px;margin:10px 0 4px;color:#111827}
 .sub{color:#6b7280;font-size:14px;margin-bottom:24px}
-#codeInput{width:100%;padding:13px 14px;border:1.5px solid #d1d5db;border-radius:12px;font-size:16px;text-align:center;outline:none;letter-spacing:2px}
-#codeInput:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.15)}
-#enterBtn{width:100%;margin-top:14px;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
-#enterBtn:hover{filter:brightness(1.05)}
+.card input{width:100%;padding:13px 14px;border:1.5px solid #d1d5db;border-radius:12px;font-size:16px;text-align:center;outline:none}
+#codeInput{letter-spacing:2px}
+.card input:focus{border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.15)}
+.card button{width:100%;margin-top:14px;padding:13px;border:none;border-radius:12px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+.card button:hover{filter:brightness(1.05)}
 .fine{font-size:12px;color:#9ca3af;margin-top:18px;line-height:1.6}
 .err{color:#dc2626;font-size:13px;margin-top:10px}
 
 /* ---------- Чат гостя ---------- */
-#guestApp{display:flex;flex-direction:column;height:100vh;max-width:860px;margin:0 auto;background:#fff}
+#guestApp{display:flex;flex-direction:column;height:100vh;max-width:880px;margin:0 auto;background:#fff;box-shadow:0 0 40px rgba(0,0,0,.06)}
 .gHeader{display:flex;align-items:center;gap:12px;padding:12px 18px;background:#fff;border-bottom:1px solid #e5e7eb}
-.avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#a855f7);display:flex;align-items:center;justify-content:center;font-size:21px;flex-shrink:0}
-.gName{font-weight:700;font-size:16px;color:#111827}
+.avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#a855f7);display:flex;align-items:center;justify-content:center;font-size:21px;flex-shrink:0}
+.gName{font-weight:700;font-size:16px;color:#111827;display:flex;align-items:center;gap:8px}
+.model{font-size:10px;font-weight:600;color:#4f46e5;background:#eef2ff;border:1px solid #e0e7ff;padding:2px 7px;border-radius:999px}
 .status{font-size:12px;color:#22c55e;display:flex;align-items:center;gap:5px}
 .dot{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block}
 .gLog{flex:1;overflow-y:auto;padding:20px 14px;display:flex;flex-direction:column;gap:10px;background:#f7f7f8}
 .row{display:flex}
 .row.me{justify-content:flex-end}
-.bub{max-width:78%;padding:10px 14px;border-radius:16px;font-size:15px;line-height:1.45;overflow-wrap:break-word;white-space:pre-wrap}
+.bub{max-width:78%;padding:10px 14px;border-radius:16px;font-size:15px;line-height:1.5;overflow-wrap:break-word;white-space:pre-wrap}
 .row.bot .bub{background:#fff;border:1px solid #e5e7eb;border-radius:16px 16px 16px 4px;color:#111827}
-.row.me .bub{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border-radius:16px 16px 4px 16px}
+.row.me .bub{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border-radius:16px 16px 4px 16px}
 .meta{font-size:11px;color:#9ca3af;margin-top:4px}
 .row.me .meta{color:rgba(255,255,255,.75);text-align:right}
-.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:8px 0 4px}
-.chip{padding:8px 14px;border:1px solid #d1d5db;border-radius:999px;background:#fff;font-size:13px;color:#374151;cursor:pointer}
-.chip:hover{border-color:#6366f1;color:#6366f1}
+.hero{text-align:center;margin:auto 0;padding:24px 10px 6px}
+.heroLogo{font-size:52px}
+.hero h2{font-size:24px;color:#111827;margin:10px 0 6px}
+.hero p{color:#6b7280;font-size:14px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:16px 10px 8px}
+.chip{padding:9px 16px;border:1px solid #d1d5db;border-radius:999px;background:#fff;font-size:13px;color:#374151;cursor:pointer;transition:all .15s}
+.chip:hover{border-color:#4f46e5;color:#4f46e5;background:#eef2ff}
 .gFooter{padding:10px 14px 12px;background:#fff;border-top:1px solid #e5e7eb}
 .inpRow{display:flex;gap:8px;align-items:center}
-#guestInput{flex:1;padding:12px 18px;border:1.5px solid #d1d5db;border-radius:24px;font-size:15px;outline:none}
-#guestInput:focus{border-color:#6366f1}
-#guestSend{width:46px;height:46px;border:none;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:17px;cursor:pointer;flex-shrink:0}
+.gFooter input{flex:1;padding:12px 18px;border:1.5px solid #d1d5db;border-radius:24px;font-size:15px;outline:none}
+.gFooter input:focus{border-color:#4f46e5}
+#guestSend{width:46px;height:46px;border:none;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-size:17px;cursor:pointer;flex-shrink:0}
 #guestSend:hover{filter:brightness(1.08)}
 .disc{font-size:11px;color:#9ca3af;text-align:center;margin-top:8px}
+.gen{display:flex;align-items:center;gap:10px}
+.genTxt{font-size:13px;color:#6b7280}
 .dots span{display:inline-block;width:6px;height:6px;background:#9ca3af;border-radius:50%;margin:0 1.5px;animation:blink 1.2s infinite}
 .dots span:nth-child(2){animation-delay:.2s}
 .dots span:nth-child(3){animation-delay:.4s}
 @keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
-.tRow{display:none}
-.tRow.on{display:flex}
 
 /* ---------- Панель оператора ---------- */
 #aiApp{display:flex;flex-direction:column;height:100vh;background:#0f172a;color:#e2e8f0}
-.aHeader{padding:14px 20px;background:#1e293b;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155}
+.aHeader{padding:13px 20px;background:#1e293b;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;gap:10px}
 .aTitle{font-weight:700;font-size:16px}
 .aSub{font-size:12px;color:#94a3b8;margin-top:3px}
-.badge{font-size:11px;font-weight:600;padding:5px 10px;border-radius:999px;background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.35)}
+.badge{font-size:11px;font-weight:600;padding:5px 10px;border-radius:999px;background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.35);white-space:nowrap}
+.aBody{display:flex;flex:1;min-height:0}
+.aSidebar{width:270px;flex-shrink:0;background:#111c33;border-right:1px solid #1f2b45;display:flex;flex-direction:column}
+.sbTitle{padding:14px 16px 10px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#64748b}
+.sbList{flex:1;overflow-y:auto}
+.sbItem{padding:12px 16px;cursor:pointer;border-bottom:1px solid #1a2540;display:flex;gap:10px;align-items:flex-start}
+.sbItem:hover{background:#182742}
+.sbItem.active{background:#1e3a5f}
+.sbDot{width:9px;height:9px;border-radius:50%;background:#475569;margin-top:6px;flex-shrink:0}
+.sbDot.on{background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.7)}
+.sbMain{flex:1;min-width:0}
+.sbNick{font-weight:600;font-size:14px;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sbPrev{font-size:12px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.sbRight{text-align:right;flex-shrink:0}
+.sbTime{font-size:11px;color:#64748b}
+.sbUnread{display:inline-block;min-width:20px;padding:2px 6px;margin-top:6px;border-radius:999px;background:#4f46e5;color:#fff;font-size:11px;font-weight:700}
+.sbEmpty{padding:24px 16px;font-size:13px;color:#475569;text-align:center;line-height:1.6}
+.aChat{flex:1;display:flex;flex-direction:column;min-width:0}
+.aChatHead{padding:12px 18px;background:#16223c;border-bottom:1px solid #26334f;display:flex;align-items:center;gap:10px}
+.backBtn{display:none;background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;padding:0 6px}
+.aChatNick{font-weight:700;font-size:15px}
+.aChatStatus{font-size:12px;color:#64748b;margin-left:auto}
 .aLog{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:10px}
+.nickTag{font-size:11px;color:#64748b;margin:0 0 3px 4px}
 .aLog .row.bot .bub{background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:16px 16px 16px 4px}
 .aLog .row.me .bub{background:linear-gradient(135deg,#10b981,#059669);color:#fff;border-radius:16px 16px 4px 16px}
 .aLog .meta{color:#64748b}
 .aLog .row.me .meta{color:rgba(255,255,255,.7);text-align:right}
+.aLog .genTxt{color:#94a3b8}
 .aFooter{padding:12px 18px 14px;background:#1e293b;border-top:1px solid #334155}
-#aInput{flex:1;padding:12px 16px;border-radius:12px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px;outline:none}
-#aInput:focus{border-color:#10b981}
+.aFooter input{flex:1;padding:12px 16px;border-radius:12px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px;outline:none}
+.aFooter input:focus{border-color:#10b981}
 #aSend{padding:12px 22px;border:none;border-radius:12px;background:#10b981;color:#fff;font-size:14px;font-weight:600;cursor:pointer;margin-left:8px}
 #aSend:hover{filter:brightness(1.08)}
 .note{font-size:11px;color:#64748b;margin-top:8px;text-align:center}
-.tRowA{display:none}
-.tRowA.on{display:flex}
+.tRow{display:none}
+.tRow.on{display:flex}
+
+/* ---------- Тосты ---------- */
+#toasts{position:fixed;top:16px;right:16px;z-index:50;display:flex;flex-direction:column;gap:8px}
+.toast{background:#1e293b;border:1px solid #4f46e5;color:#e2e8f0;padding:12px 16px;border-radius:12px;font-size:13px;max-width:280px;box-shadow:0 10px 30px rgba(0,0,0,.4);cursor:pointer;line-height:1.4}
+.toast b{color:#a5b4fc}
+
+@media (max-width:720px){
+  .aSidebar{width:100%}
+  #aiApp.hasActive .aSidebar{display:none}
+  #aiApp.hasActive .aChat{display:flex}
+  #aiApp:not(.hasActive) .aChat{display:none}
+  .backBtn{display:block}
+  .bub{max-width:88%}
+}
 </style>
 </head>
 <body>
@@ -84,13 +127,23 @@ button{font-family:inherit}
 <!-- Экран входа -->
 <div id="gate">
   <div class="card">
-    <div class="logo">🤖</div>
-    <h1>НейроChat</h1>
-    <p class="sub">Общение с интеллектуальным ИИ-ассистентом</p>
-    <input id="codeInput" type="text" inputmode="numeric" autocomplete="off" placeholder="Код доступа">
-    <button id="enterBtn">Войти в чат</button>
-    <p id="gateError" class="err hidden">Введите код, чтобы продолжить</p>
-    <p class="fine">У вас нет кода? Просто введите любое число —<br>и откроется гостевой чат с ИИ.</p>
+    <div id="stepCode">
+      <div class="logo">🤖</div>
+      <h1>ai-ironyk</h1>
+      <p class="sub">Чат с интеллектуальным ИИ-ассистентом</p>
+      <input id="codeInput" type="text" inputmode="numeric" autocomplete="off" placeholder="Код доступа">
+      <button id="enterBtn">Войти в чат</button>
+      <p id="gateError" class="err hidden">Введите код, чтобы продолжить</p>
+      <p class="fine">У вас нет кода? Просто введите любое число —<br>и откроется гостевой чат с ИИ.</p>
+    </div>
+    <div id="stepNick" class="hidden">
+      <div class="logo">👤</div>
+      <h1>Как вас зовут?</h1>
+      <p class="sub">Так вас будет видеть собеседник в чате</p>
+      <input id="nickInput" type="text" maxlength="24" autocomplete="off" placeholder="Ваш ник">
+      <button id="nickBtn">Начать чат</button>
+      <p id="nickError" class="err hidden">Введите ник</p>
+    </div>
   </div>
 </div>
 
@@ -99,20 +152,17 @@ button{font-family:inherit}
   <header class="gHeader">
     <div class="avatar">🤖</div>
     <div>
-      <div class="gName">НейроChat <span style="font-weight:400;color:#9ca3af;font-size:12px">2.0</span></div>
+      <div class="gName">ai-ironyk <span class="model">ironyk-1.0</span></div>
       <div class="status"><span class="dot"></span> онлайн</div>
     </div>
   </header>
   <main class="gLog" id="gLog"></main>
   <div class="gFooter">
-    <div class="tRow row bot" id="gTyping">
-      <div class="bub dots"><span></span><span></span><span></span></div>
-    </div>
     <div class="inpRow">
-      <input id="guestInput" type="text" autocomplete="off" maxlength="800" placeholder="Задайте вопрос…">
+      <input id="guestInput" type="text" autocomplete="off" maxlength="800" placeholder="Спросите что-нибудь…">
       <button id="guestSend">➤</button>
     </div>
-    <p class="disc">НейроChat может ошибаться. Проверяйте важную информацию.</p>
+    <p class="disc">ai-ironyk может ошибаться. Проверяйте важную информацию.</p>
   </div>
 </div>
 
@@ -120,23 +170,38 @@ button{font-family:inherit}
 <div id="aiApp" class="hidden">
   <header class="aHeader">
     <div>
-      <div class="aTitle">НейроChat · панель ИИ</div>
-      <div class="aSub" id="aPeerStatus">Проверяем связь…</div>
+      <div class="aTitle">ai-ironyk · панель ИИ</div>
+      <div class="aSub" id="aPeerStatus">Ожидаю собеседников…</div>
     </div>
     <span class="badge" id="aConn">подключение…</span>
   </header>
-  <main class="aLog" id="aLog"></main>
-  <div class="aFooter">
-    <div class="tRowA row bot" id="aTyping">
-      <div class="bub dots"><span></span><span></span><span></span></div>
+  <div class="aBody">
+    <aside class="aSidebar">
+      <div class="sbTitle">Входящие чаты</div>
+      <div class="sbList" id="sbList"><div class="sbEmpty">Пока никто не написал.<br>Как только собеседник задаст вопрос — он появится здесь, а вы получите уведомление.</div></div>
+    </aside>
+    <div class="aChat" id="aChat">
+      <div class="aChatHead">
+        <button class="backBtn" id="backBtn">←</button>
+        <span class="aChatNick" id="aChatNick"></span>
+        <span class="aChatStatus" id="aChatStatus"></span>
+      </div>
+      <main class="aLog" id="aLog"></main>
+      <div class="aFooter">
+        <div class="tRow row bot" id="aTyping">
+          <div class="bub dots"><span></span><span></span><span></span></div>
+        </div>
+        <div class="inpRow">
+          <input id="aInput" type="text" autocomplete="off" maxlength="800" placeholder="Ответ от имени ai-ironyk…">
+          <button id="aSend">Отправить</button>
+        </div>
+        <p class="note">Вы отвечаете от имени ai-ironyk. Уведомления о новых вопросах приходят даже когда открыт другой чат.</p>
+      </div>
     </div>
-    <div class="inpRow">
-      <input id="aInput" type="text" autocomplete="off" maxlength="800" placeholder="Ответ от имени НейроChat…">
-      <button id="aSend">Отправить</button>
-    </div>
-    <p class="note">Вы отвечаете от имени НейроChat. Приветствие уже показано собеседнику — просто отвечайте на его вопросы.</p>
   </div>
 </div>
+
+<div id="toasts"></div>
 
 <script>
 (function(){
@@ -146,39 +211,68 @@ button{font-family:inherit}
   var BASE = 'neurochat/' + ROOM_ID + '/';
   var OPERATOR_CODE = '9988';
   var CID = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  var AI_NAME = 'ai-ironyk';
 
   var role = null;
   var client = null;
-  var log = [];
+  var SID = null;
+  var nick = '';
+  var logs = {};
+  var sessions = {};
   var seenIds = {};
-  var otherLastSeen = 0;
-  var typingClearTimer = null;
+  var activeSid = null;
+  var otherLastSeen = {};
+  var waiting = false;
   var typingOffTimer = null;
   var lastTypingSent = 0;
+  var genTimer = null;
+  var genIdx = 0;
+  var GEN_TEXTS = ['Генерируется ответ…', 'Анализирую запрос…', 'Подбираю формулировку…', 'Формирую ответ…'];
 
   function $(id){ return document.getElementById(id); }
-  function timeStr(ts){
-    return new Date(ts).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
-  }
+  function esc(t){ var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+  function timeStr(ts){ return new Date(ts).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}); }
   function pub(kind, obj){
-    try{
-      if(client && client.connected) client.publish(BASE + kind, JSON.stringify(obj));
-    }catch(e){}
+    try{ if(client && client.connected) client.publish(BASE + kind, JSON.stringify(obj)); }catch(e){}
   }
   function seen(id){ return !!seenIds[id]; }
 
-  function enter(){
+  /* ---------- Вход ---------- */
+  function submitCode(){
     var code = $('codeInput').value.trim();
-    if(!code){
-      $('gateError').classList.remove('hidden');
-      return;
+    if(!code){ $('gateError').classList.remove('hidden'); return; }
+    if(code === OPERATOR_CODE){
+      role = 'ai';
+      startApp();
+    }else{
+      $('stepCode').classList.add('hidden');
+      $('stepNick').classList.remove('hidden');
+      $('nickInput').focus();
     }
-    role = (code === OPERATOR_CODE) ? 'ai' : 'guest';
+  }
+
+  function submitNick(){
+    nick = $('nickInput').value.trim().slice(0, 24);
+    if(!nick){ $('nickError').classList.remove('hidden'); return; }
+    role = 'guest';
+    SID = 's' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    startApp();
+  }
+
+  function startApp(){
     $('gate').classList.add('hidden');
     $(role === 'guest' ? 'guestApp' : 'aiApp').classList.remove('hidden');
+    if(role === 'guest'){
+      renderGuestLog();
+    }else{
+      if('Notification' in window && Notification.permission === 'default'){
+        try{ Notification.requestPermission(); }catch(e){}
+      }
+    }
     connect();
   }
 
+  /* ---------- Связь ---------- */
   function connect(){
     if(typeof mqtt === 'undefined'){
       connBadge('нет соединения', '#f87171');
@@ -194,31 +288,25 @@ button{font-family:inherit}
     client.on('connect', function(){
       client.subscribe(BASE + '#', {qos: 0});
       connBadge(role === 'guest' ? '' : 'на связи', '#34d399');
-      pub('sync', {req: role, cid: CID});
+      pub('sync', role === 'guest' ? {req: role, cid: CID, sid: SID, nick: nick} : {req: role, cid: CID});
     });
     client.on('reconnect', function(){ connBadge('переподключение…', '#fbbf24'); });
     client.on('close', function(){ connBadge('нет связи', '#f87171'); });
     client.on('error', function(){});
     client.on('message', onMessage);
     setInterval(presenceTick, 4000);
-    setInterval(peerStatusTick, 2000);
   }
 
   function connBadge(text, color){
     var b = $('aConn');
     if(!b) return;
-    b.textContent = text || 'ИИ онлайн';
+    b.textContent = text || (AI_NAME + ' онлайн');
     b.style.color = color;
   }
 
   function presenceTick(){
-    pub('presence', {from: role, ts: Date.now()});
-  }
-
-  function peerStatusTick(){
-    if(role !== 'ai') return;
-    var online = otherLastSeen && (Date.now() - otherLastSeen < 12000);
-    $('aPeerStatus').textContent = online ? 'Собеседник в сети' : 'Собеседник не в сети';
+    if(role === 'guest') pub('presence', {from: role, sid: SID, nick: nick, ts: Date.now()});
+    else pub('presence', {from: role, sid: null, nick: '', ts: Date.now()});
   }
 
   function onMessage(topic, payload){
@@ -226,38 +314,79 @@ button{font-family:inherit}
     try{ m = JSON.parse(payload.toString()); }catch(e){ return; }
     if(topic === BASE + 'msg'){
       if(m.from === role || seen(m.id) || !m.text) return;
-      merge(m);
-      hideTyping();
+      if(role === 'guest'){
+        if(m.sid !== SID) return;
+        waiting = false;
+        stopGen();
+        mergeGuest(m);
+      }else{
+        mergeOperator(m);
+      }
     }else if(topic === BASE + 'typing'){
       if(m.from === role) return;
-      showTyping(!!m.typing);
+      if(role === 'guest'){
+        if(m.typing && m.sid === SID) startGen();
+      }else{
+        if(m.sid && m.sid === activeSid) showTyping(!!m.typing);
+      }
     }else if(topic === BASE + 'presence'){
       if(m.from === role) return;
-      otherLastSeen = Date.now();
+      if(role === 'guest') return;
+      if(!m.sid) return;
+      otherLastSeen[m.sid] = Date.now();
+      if(!sessions[m.sid]){
+        sessions[m.sid] = {nick: m.nick || 'Гость', lastTs: Date.now(), lastText: '', unread: 0};
+        renderSidebar();
+      }else{
+        renderSidebar();
+      }
     }else if(topic === BASE + 'sync'){
       if(m.req && m.req !== role && m.cid){
-        pub('syncdata', {to: m.cid, log: log});
+        if(role === 'guest'){
+          pub('syncdata', {to: m.cid, sid: SID, nick: nick, log: logs[SID] || []});
+        }else{
+          pub('syncdata', {to: m.cid, sid: m.sid, log: logs[m.sid] || []});
+        }
       }
     }else if(topic === BASE + 'syncdata'){
-      if(m.to === CID && Array.isArray(m.log)){
+      if(m.to !== CID || !Array.isArray(m.log)) return;
+      if(role === 'guest'){
+        if(m.sid !== SID) return;
         m.log.forEach(function(x){
-          if(x && x.id && !seen(x.id) && x.from !== role) merge(x);
+          if(x && x.id && !seen(x.id) && x.from !== role) mergeGuest(x);
         });
+      }else{
+        if(!m.sid) return;
+        if(!sessions[m.sid]) sessions[m.sid] = {nick: m.nick || 'Гость', lastTs: Date.now(), lastText: '', unread: 0};
+        if(!logs[m.sid]) logs[m.sid] = [];
+        m.log.forEach(function(x){
+          if(x && x.id && !seen(x.id)){
+            seenIds[x.id] = true;
+            logs[m.sid].push(x);
+          }
+        });
+        logs[m.sid].sort(function(a, b){ return a.ts - b.ts; });
+        var last = logs[m.sid][logs[m.sid].length - 1];
+        if(last) sessions[m.sid].lastText = last.text;
+        renderSidebar();
+        if(m.sid === activeSid) renderOperatorChat();
       }
     }
   }
 
-  function merge(m){
+  /* ---------- Гость: сообщения ---------- */
+  function mergeGuest(m){
     seenIds[m.id] = true;
-    log.push(m);
-    log.sort(function(a, b){ return a.ts - b.ts; });
-    if(log.length > 300) log = log.slice(-300);
-    renderLog();
+    if(!logs[SID]) logs[SID] = [];
+    logs[SID].push(m);
+    logs[SID].sort(function(a, b){ return a.ts - b.ts; });
+    renderGuestLog();
   }
 
-  function bubble(m){
+  function guestBubble(m){
+    var mine = m.from === 'guest';
     var row = document.createElement('div');
-    row.className = 'row ' + (m.from === role ? 'me' : 'bot');
+    row.className = 'row ' + (mine ? 'me' : 'bot');
     var b = document.createElement('div');
     var bub = document.createElement('div');
     bub.className = 'bub';
@@ -271,24 +400,202 @@ button{font-family:inherit}
     return row;
   }
 
-  function renderLog(){
-    var box = $(role === 'guest' ? 'gLog' : 'aLog');
+  function renderGuestLog(){
+    var box = $('gLog');
     box.innerHTML = '';
-    if(role === 'guest'){
-      box.appendChild(welcomeBubble());
-      if(log.length === 0) box.appendChild(suggestionChips());
+    var msgs = logs[SID] || [];
+    if(msgs.length === 0){
+      var hero = document.createElement('div');
+      hero.className = 'hero';
+      hero.innerHTML = '<div class="heroLogo">🤖</div><h2>ai-ironyk</h2><p>Привет, ' + esc(nick) + '! 👋 Я интеллектуальный ассистент.<br>Спрашивай что угодно — помогу с учёбой, идеями или просто поболтаем.</p>';
+      box.appendChild(hero);
+      var chips = document.createElement('div');
+      chips.className = 'chips';
+      ['Привет! Кто ты?', 'Расскажи интересный факт', 'Помоги придумать идею', 'Пошути!'].forEach(function(t){
+        var c = document.createElement('button');
+        c.className = 'chip';
+        c.type = 'button';
+        c.textContent = t;
+        c.addEventListener('click', function(){
+          $('guestInput').value = t;
+          guestSend();
+        });
+        chips.appendChild(c);
+      });
+      box.appendChild(chips);
+    }else{
+      msgs.forEach(function(m){ box.appendChild(guestBubble(m)); });
+      if(waiting) box.appendChild(genBubble());
     }
-    log.forEach(function(m){ box.appendChild(bubble(m)); });
     box.scrollTop = box.scrollHeight;
   }
 
-  function welcomeBubble(){
-    var m = {from: role === 'guest' ? 'ai' : 'guest', ts: Date.now(),
-      text: 'Привет! 👋 Я НейроChat — интеллектуальный ассистент. Спрашивай что угодно: помогу с учёбой, идеями, текстами или просто поболтаем!'};
-    return bubbleFor(m, m.from === role);
+  function genBubble(){
+    var row = document.createElement('div');
+    row.className = 'row bot';
+    var b = document.createElement('div');
+    b.className = 'bub gen';
+    b.innerHTML = '<span class="dots"><span></span><span></span><span></span></span><span class="genTxt" id="genTxt">' + GEN_TEXTS[0] + '</span>';
+    row.appendChild(b);
+    return row;
   }
 
-  function bubbleFor(m, mine){
+  function startGen(){
+    if(!waiting){
+      waiting = true;
+      genIdx = 0;
+      stopGenTimer();
+      genTimer = setInterval(function(){
+        genIdx = (genIdx + 1) % GEN_TEXTS.length;
+        var el = $('genTxt');
+        if(el) el.textContent = GEN_TEXTS[genIdx];
+      }, 1800);
+      renderGuestLog();
+    }
+  }
+
+  function stopGenTimer(){
+    if(genTimer){ clearInterval(genTimer); genTimer = null; }
+  }
+
+  function stopGen(){
+    stopGenTimer();
+  }
+
+  function guestSend(){
+    var inp = $('guestInput');
+    var text = inp.value.trim().slice(0, 800);
+    if(!text) return;
+    var msg = {id: SID + '-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), from: 'guest', sid: SID, nick: nick, text: text, ts: Date.now()};
+    mergeGuest(msg);
+    pub('msg', msg);
+    inp.value = '';
+    sendTyping(false);
+    startGen();
+  }
+
+  function onGuestInput(){
+    var now = Date.now();
+    if(now - lastTypingSent > 1800){
+      lastTypingSent = now;
+      pub('typing', {from: 'guest', sid: SID, typing: true});
+    }
+    clearTimeout(typingOffTimer);
+    typingOffTimer = setTimeout(function(){ pub('typing', {from: 'guest', sid: SID, typing: false}); }, 4000);
+  }
+
+  function sendTyping(v){
+    pub('typing', {from: role, sid: SID, typing: v});
+  }
+
+  /* ---------- Оператор: чаты ---------- */
+  function mergeOperator(m){
+    seenIds[m.id] = true;
+    var sid = m.sid;
+    if(!sid) return;
+    if(!sessions[sid]) sessions[sid] = {nick: m.nick || 'Гость', lastTs: m.ts, lastText: '', unread: 0};
+    if(!logs[sid]) logs[sid] = [];
+    logs[sid].push(m);
+    logs[sid].sort(function(a, b){ return a.ts - b.ts; });
+    var s = sessions[sid];
+    s.lastTs = m.ts;
+    s.lastText = m.text;
+    if(m.from === 'guest' && (sid !== activeSid || document.hidden)){
+      s.unread++;
+      notify(m);
+    }
+    if(sid === activeSid){
+      renderOperatorChat();
+      hideTyping();
+    }
+    renderSidebar();
+  }
+
+  function notify(m){
+    beep();
+    toast(m.nick || 'Гость', m.text, m.sid);
+    if('Notification' in window && Notification.permission === 'granted'){
+      try{
+        var n = new Notification('ai-ironyk · новый вопрос', {body: (m.nick || 'Гость') + ': ' + m.text, tag: m.id});
+        n.onclick = function(){ window.focus(); openSession(m.sid); n.close(); };
+      }catch(e){}
+    }
+  }
+
+  function beep(){
+    try{
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = ctx.createOscillator();
+      var g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = 880;
+      o.type = 'sine';
+      g.gain.setValueAtTime(0.12, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      o.start();
+      o.stop(ctx.currentTime + 0.35);
+      setTimeout(function(){ ctx.close(); }, 500);
+    }catch(e){}
+  }
+
+  function toast(nickName, text, sid){
+    var t = document.createElement('div');
+    t.className = 'toast';
+    t.innerHTML = '<b>' + esc(nickName) + '</b> спрашивает:<br>' + esc(text.slice(0, 90));
+    t.addEventListener('click', function(){
+      openSession(sid);
+      t.remove();
+    });
+    $('toasts').appendChild(t);
+    setTimeout(function(){ t.remove(); }, 8000);
+  }
+
+  function renderSidebar(){
+    var box = $('sbList');
+    box.innerHTML = '';
+    var ids = Object.keys(sessions).sort(function(a, b){ return sessions[b].lastTs - sessions[a].lastTs; });
+    if(ids.length === 0){
+      box.innerHTML = '<div class="sbEmpty">Пока никто не написал.<br>Как только собеседник задаст вопрос — он появится здесь, а вы получите уведомление.</div>';
+      $('aPeerStatus').textContent = 'Ожидаю собеседников…';
+      return;
+    }
+    ids.forEach(function(sid){
+      var s = sessions[sid];
+      var online = otherLastSeen[sid] && (Date.now() - otherLastSeen[sid] < 12000);
+      var item = document.createElement('div');
+      item.className = 'sbItem' + (sid === activeSid ? ' active' : '');
+      item.innerHTML =
+        '<span class="sbDot' + (online ? ' on' : '') + '"></span>' +
+        '<span class="sbMain"><span class="sbNick">' + esc(s.nick) + '</span>' +
+        '<span class="sbPrev">' + esc(s.lastText || 'Новый вопрос…') + '</span></span>' +
+        '<span class="sbRight"><span class="sbTime">' + timeStr(s.lastTs) + '</span>' +
+        (s.unread ? '<span class="sbUnread">' + s.unread + '</span>' : '') + '</span>';
+      item.addEventListener('click', function(){ openSession(sid); });
+      box.appendChild(item);
+    });
+    var totalUnread = ids.reduce(function(acc, sid){ return acc + sessions[sid].unread; }, 0);
+    $('aPeerStatus').textContent = 'Чатов: ' + ids.length + (totalUnread ? ' · новых сообщений: ' + totalUnread : '');
+  }
+
+  function openSession(sid){
+    activeSid = sid;
+    sessions[sid].unread = 0;
+    $('aiApp').classList.add('hasActive');
+    $('aChatNick').textContent = sessions[sid].nick;
+    renderOperatorChat();
+    renderSidebar();
+    $('aInput').focus();
+  }
+
+  function opBubble(m){
+    var mine = m.from === 'ai';
+    var wrap = document.createElement('div');
+    if(!mine){
+      var tag = document.createElement('div');
+      tag.className = 'nickTag';
+      tag.textContent = (m.nick || 'Гость') + ' · ' + timeStr(m.ts);
+      wrap.appendChild(tag);
+    }
     var row = document.createElement('div');
     row.className = 'row ' + (mine ? 'me' : 'bot');
     var b = document.createElement('div');
@@ -296,79 +603,87 @@ button{font-family:inherit}
     bub.className = 'bub';
     bub.textContent = m.text;
     b.appendChild(bub);
+    var meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = timeStr(m.ts);
+    b.appendChild(meta);
     row.appendChild(b);
-    return row;
-  }
-
-  function suggestionChips(){
-    var wrap = document.createElement('div');
-    wrap.className = 'chips';
-    ['Привет! Кто ты?', 'Расскажи интересный факт', 'Помоги придумать идею', 'Пошути!'].forEach(function(t){
-      var c = document.createElement('button');
-      c.className = 'chip';
-      c.type = 'button';
-      c.textContent = t;
-      c.addEventListener('click', function(){
-        $('guestInput').value = t;
-        send();
-      });
-      wrap.appendChild(c);
-    });
+    wrap.appendChild(row);
     return wrap;
   }
 
-  function send(){
-    var inp = $(role === 'guest' ? 'guestInput' : 'aInput');
+  function renderOperatorChat(){
+    var box = $('aLog');
+    box.innerHTML = '';
+    var msgs = activeSid && logs[activeSid] ? logs[activeSid] : [];
+    if(!activeSid){
+      box.innerHTML = '<div class="sbEmpty" style="margin:auto">Выберите чат слева,<br>чтобы подключиться к собеседнику</div>';
+      return;
+    }
+    msgs.forEach(function(m){ box.appendChild(opBubble(m)); });
+    box.scrollTop = box.scrollHeight;
+    var online = otherLastSeen[activeSid] && (Date.now() - otherLastSeen[activeSid] < 12000);
+    $('aChatStatus').textContent = online ? 'в сети' : 'не в сети';
+  }
+
+  function opSend(){
+    if(!activeSid) return;
+    var inp = $('aInput');
     var text = inp.value.trim().slice(0, 800);
     if(!text) return;
-    var msg = {id: CID + '-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), from: role, text: text, ts: Date.now()};
-    merge(msg);
+    var msg = {id: CID + '-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), from: 'ai', sid: activeSid, nick: AI_NAME, text: text, ts: Date.now()};
+    seenIds[msg.id] = true;
+    if(!logs[activeSid]) logs[activeSid] = [];
+    logs[activeSid].push(msg);
+    sessions[activeSid].lastTs = msg.ts;
+    sessions[activeSid].lastText = msg.text;
+    renderOperatorChat();
+    renderSidebar();
     pub('msg', msg);
     inp.value = '';
     sendTyping(false);
     hideTyping();
   }
 
-  function onInput(){
+  function onOpInput(){
+    if(!activeSid) return;
     var now = Date.now();
     if(now - lastTypingSent > 1800){
       lastTypingSent = now;
-      pub('typing', {from: role, typing: true});
+      pub('typing', {from: 'ai', sid: activeSid, typing: true});
     }
     clearTimeout(typingOffTimer);
-    typingOffTimer = setTimeout(function(){ pub('typing', {from: role, typing: false}); }, 4000);
-  }
-
-  function sendTyping(v){
-    pub('typing', {from: role, typing: v});
+    typingOffTimer = setTimeout(function(){ pub('typing', {from: 'ai', sid: activeSid, typing: false}); }, 4000);
   }
 
   function showTyping(v){
-    clearTimeout(typingClearTimer);
-    var el = $(role === 'guest' ? 'gTyping' : 'aTyping');
+    var el = $('aTyping');
     if(!el) return;
-    if(v){
-      el.classList.add('on');
-      typingClearTimer = setTimeout(hideTyping, 6000);
-    }else{
-      el.classList.remove('on');
-    }
+    el.classList.toggle('on', !!v);
   }
 
   function hideTyping(){
-    clearTimeout(typingClearTimer);
-    var el = $(role === 'guest' ? 'gTyping' : 'aTyping');
+    var el = $('aTyping');
     if(el) el.classList.remove('on');
   }
 
-  $('enterBtn').addEventListener('click', enter);
-  $('codeInput').addEventListener('keydown', function(e){ if(e.key === 'Enter') enter(); });
-  $('guestSend').addEventListener('click', send);
-  $('guestInput').addEventListener('keydown', function(e){ if(e.key === 'Enter') send(); });
-  $('guestInput').addEventListener('input', onInput);
-  $('aSend').addEventListener('click', send);
-  $('aInput').addEventListener('keydown', function(e){ if(e.key === 'Enter') send(); });
-  $('aInput').addEventListener('input', onInput);
+  /* ---------- События ---------- */
+  $('enterBtn').addEventListener('click', submitCode);
+  $('codeInput').addEventListener('keydown', function(e){ if(e.key === 'Enter') submitCode(); });
+  $('nickBtn').addEventListener('click', submitNick);
+  $('nickInput').addEventListener('keydown', function(e){ if(e.key === 'Enter') submitNick(); });
+  $('guestSend').addEventListener('click', guestSend);
+  $('guestInput').addEventListener('keydown', function(e){ if(e.key === 'Enter') guestSend(); });
+  $('guestInput').addEventListener('input', onGuestInput);
+  $('aSend').addEventListener('click', opSend);
+  $('aInput').addEventListener('keydown', function(e){ if(e.key === 'Enter') opSend(); });
+  $('aInput').addEventListener('input', onOpInput);
+  $('backBtn').addEventListener('click', function(){
+    activeSid = null;
+    $('aiApp').classList.remove('hasActive');
+    renderOperatorChat();
+    renderSidebar();
+  });
 })();
 </script>
 </body>
