@@ -291,6 +291,7 @@ button,textarea{font-family:inherit}
   var activeSid = null;
   var otherLastSeen = {};
   var waiting = false;
+  var waitingStart = 0;
   var typingOffTimer = null;
   var lastTypingSent = 0;
   var genTimer = null;
@@ -391,6 +392,21 @@ button,textarea{font-family:inherit}
     client.on('error', function(){});
     client.on('message', onMessage);
     setInterval(presenceTick, 4000);
+    setInterval(guestSweep, 5000);
+  }
+
+  function guestSweep(){
+    if(role !== 'guest') return;
+    var changed = false;
+    Object.keys(stream).forEach(function(id){
+      if(Date.now() - stream[id].ts > 30000){ delete stream[id]; changed = true; }
+    });
+    if(waiting && Date.now() - waitingStart > 100000){
+      waiting = false;
+      stopGenTimer();
+      changed = true;
+    }
+    if(changed) renderGuestLog();
   }
 
   function connBadge(text, color){
@@ -599,7 +615,7 @@ button,textarea{font-family:inherit}
     var box = $('gLog');
     box.innerHTML = '';
     Object.keys(stream).forEach(function(id){
-      if(Date.now() - stream[id].ts > 45000) delete stream[id];
+      if(Date.now() - stream[id].ts > 30000) delete stream[id];
     });
     var msgs = logs[SID] || [];
     if(msgs.length === 0){
@@ -623,7 +639,7 @@ button,textarea{font-family:inherit}
       box.appendChild(chips);
     }else{
       msgs.forEach(function(m){ box.appendChild(guestBubble(m)); });
-      var streamIds = Object.keys(stream);
+      var streamIds = Object.keys(stream).filter(function(id){ return stream[id].t && stream[id].t.trim(); });
       if(waiting && streamIds.length === 0) box.appendChild(genBubble());
       streamIds.forEach(function(id){
         var row = document.createElement('div');
@@ -659,6 +675,7 @@ button,textarea{font-family:inherit}
   }
 
   function startGen(){
+    waitingStart = Date.now();
     if(!waiting){
       waiting = true;
       genIdx = 0;
@@ -1032,9 +1049,8 @@ button,textarea{font-family:inherit}
     var parts = chunkText(text);
     var i = 0;
     function next(){
-      if(item.cancelled) return;
-      if(i < parts.length){
-        pub('stream', {id: id, from: 'host', sid: sid, chunk: parts[i]});
+      if(i < parts.length && !item.cancelled){
+        if(parts[i].trim()) pub('stream', {id: id, from: 'host', sid: sid, chunk: parts[i]});
         i++;
         setTimeout(next, 180 + Math.random() * 340);
       }else{
