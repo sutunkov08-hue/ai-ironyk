@@ -79,6 +79,8 @@ button,textarea{font-family:inherit}
 .aTitle{font-weight:700;font-size:16px}
 .aSub{font-size:12px;color:#94a3b8;margin-top:3px}
 .badge{font-size:11px;font-weight:600;padding:5px 10px;border-radius:999px;background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.35);white-space:nowrap}
+.autoBtn{border:1px solid #334155;background:#0f172a;color:#94a3b8;font-size:12px;font-weight:600;padding:7px 14px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.autoBtn.on{border-color:#10b981;color:#34d399;background:rgba(16,185,129,.12)}
 .aBody{display:flex;flex:1;min-height:0}
 .aSidebar{width:270px;flex-shrink:0;background:#111c33;border-right:1px solid #1f2b45;display:flex;flex-direction:column}
 .sbTitle{padding:14px 16px 10px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#64748b}
@@ -186,6 +188,7 @@ button,textarea{font-family:inherit}
       <div class="aSub" id="aPeerStatus"></div>
     </div>
     <span class="badge" id="aConn"></span>
+    <button class="autoBtn" id="autoBtn" type="button"></button>
   </header>
   <div class="aBody">
     <aside class="aSidebar">
@@ -251,7 +254,10 @@ button,textarea{font-family:inherit}
     chats: dec('0KfQsNGC0L7Qsjog'),
     unread: dec('IMK3INC90L7QstGL0YU6IA=='),
     online: dec('0LIg0YHQtdGC0Lg='),
-    offline: dec('0L3QtSDQsiDRgdC10YLQuA==')
+    offline: dec('0L3QtSDQsiDRgdC10YLQuA=='),
+    autoLabel: dec('0JjQmC3RgNC10LbQuNC8'),
+    autoFail: dec('0JDQstGC0L7QvtGC0LLQtdGCINC90LUg0YPQtNCw0LvRgdGPIOKAlCDQvdCw0L/QuNGI0Lgg0L7RgtCy0LXRgiDQstGA0YPRh9C90YPRjg=='),
+    autoTag: dec('0LDQstGC0L4=')
   };
 
   var CODE_LABEL = 'Скрипт';
@@ -273,6 +279,11 @@ button,textarea{font-family:inherit}
   var genTimer = null;
   var genIdx = 0;
   var fmtCode = {guest: false, host: false};
+  var autoOn = false;
+  var autoPending = {};
+  var AUTO_URL = 'https://text.pollinations.ai/';
+  var AUTO_SYS = 'Ты — умный и дружелюбный ИИ-ассистент по имени ai-ironyk. Отвечай на русском языке, кратко, живо и по делу, как чат-бот: обычным текстом, без markdown-разметки и списков, если не попросили иначе.';
+  try{ autoOn = localStorage.getItem('ironyk_auto') === '1'; }catch(e){}
   var GEN_TEXTS = ['Генерируется ответ…', 'Анализирую запрос…', 'Подбираю формулировку…', 'Формирую ответ…'];
 
   function $(id){ return document.getElementById(id); }
@@ -320,6 +331,7 @@ button,textarea{font-family:inherit}
       $('opNote').textContent = OP.opNote;
       $('aInput').placeholder = OP.opPlaceholder;
       $('aPeerStatus').textContent = OP.peerWait;
+      setAuto(autoOn);
       $('aiApp').classList.remove('hidden');
       renderSidebar();
       renderHostChat();
@@ -588,8 +600,8 @@ button,textarea{font-family:inherit}
     typingOffTimer = setTimeout(function(){ pub('typing', {from: 'guest', sid: SID, typing: false}); }, 4000);
   }
 
-  function sendTyping(v){
-    pub('typing', {from: role, sid: SID, typing: v});
+  function sendTyping(v, sid){
+    pub('typing', {from: role, sid: sid || SID, typing: v});
   }
 
   function mergeHost(m){
@@ -606,6 +618,9 @@ button,textarea{font-family:inherit}
     if(m.from === 'guest' && (sid !== activeSid || document.hidden)){
       s.unread++;
       notify(m);
+    }
+    if(m.from === 'guest' && autoOn && !autoPending[sid]){
+      autoReply(sid);
     }
     if(sid === activeSid){
       renderHostChat();
@@ -707,7 +722,7 @@ button,textarea{font-family:inherit}
     b.appendChild(contentEl(m));
     var meta = document.createElement('div');
     meta.className = 'meta';
-    meta.textContent = timeStr(m.ts);
+    meta.textContent = timeStr(m.ts) + (m.auto ? ' · ' + OP.autoTag : '');
     b.appendChild(meta);
     row.appendChild(b);
     wrap.appendChild(row);
@@ -730,24 +745,96 @@ button,textarea{font-family:inherit}
     $('aChatStatus').textContent = online ? OP.online : OP.offline;
   }
 
+  function pushHostMsg(sid, text, format, auto){
+    var msg = {id: CID + '-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), from: 'host', sid: sid, nick: BOT_NAME, format: format || 'text', text: text, ts: Date.now()};
+    if(auto) msg.auto = true;
+    seenIds[msg.id] = true;
+    if(!logs[sid]) logs[sid] = [];
+    logs[sid].push(msg);
+    if(sessions[sid]){
+      sessions[sid].lastTs = msg.ts;
+      sessions[sid].lastText = msg.text;
+    }
+    if(sid === activeSid) renderHostChat();
+    renderSidebar();
+    pub('msg', msg);
+    hideTyping();
+    return msg;
+  }
+
   function hostSend(){
     if(!activeSid) return;
     var inp = $('aInput');
     var text = inp.value.replace(/\s+$/, '');
     if(!text) return;
-    var msg = {id: CID + '-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), from: 'host', sid: activeSid, nick: BOT_NAME, format: fmtCode.host ? 'code' : 'text', text: text, ts: Date.now()};
-    seenIds[msg.id] = true;
-    if(!logs[activeSid]) logs[activeSid] = [];
-    logs[activeSid].push(msg);
-    sessions[activeSid].lastTs = msg.ts;
-    sessions[activeSid].lastText = msg.text;
-    renderHostChat();
-    renderSidebar();
-    pub('msg', msg);
+    autoPending[activeSid] = false;
+    pushHostMsg(activeSid, text, fmtCode.host ? 'code' : 'text', false);
     inp.value = '';
     autoresize(inp);
-    sendTyping(false);
-    hideTyping();
+    sendTyping(false, activeSid);
+  }
+
+  function setAuto(v){
+    autoOn = !!v;
+    try{ localStorage.setItem('ironyk_auto', autoOn ? '1' : '0'); }catch(e){}
+    var b = $('autoBtn');
+    if(b){
+      b.textContent = OP.autoLabel + (autoOn ? ' ✓' : '');
+      b.classList.toggle('on', autoOn);
+    }
+  }
+
+  function autoContext(sid){
+    var out = [];
+    (logs[sid] || []).slice(-8).forEach(function(m){
+      if(!m.text) return;
+      out.push({role: m.from === 'guest' ? 'user' : 'assistant', content: m.text});
+    });
+    return out;
+  }
+
+  function autoRequest(sid, attempt){
+    var started = Date.now();
+    var ctxMsgs = autoContext(sid);
+    if(ctxMsgs.length === 0){ autoPending[sid] = false; return; }
+    pub('typing', {from: 'host', sid: sid, typing: true});
+    var token = (autoPending[sid] = Date.now());
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var kill = ctrl ? setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, 30000) : null;
+    fetch(AUTO_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({model: 'openai', messages: [{role: 'system', content: AUTO_SYS}].concat(ctxMsgs)}),
+      signal: ctrl ? ctrl.signal : undefined
+    }).then(function(r){
+      if(!r.ok) throw new Error('http ' + r.status);
+      return r.text();
+    }).then(function(text){
+      if(kill) clearTimeout(kill);
+      text = (text || '').trim();
+      if(!text) throw new Error('empty');
+      var wait = Math.max(0, 700 + Math.random() * 1300 - (Date.now() - started));
+      setTimeout(function(){
+        if(!autoOn || autoPending[sid] !== token) return;
+        autoPending[sid] = false;
+        pushHostMsg(sid, text, 'text', true);
+      }, wait);
+    }).catch(function(){
+      if(kill) clearTimeout(kill);
+      if(autoPending[sid] !== token) return;
+      if(attempt < 1){
+        setTimeout(function(){
+          if(autoOn && autoPending[sid] === token) autoRequest(sid, attempt + 1);
+        }, 46000);
+        return;
+      }
+      autoPending[sid] = false;
+      toast('—', OP.autoFail, sid);
+    });
+  }
+
+  function autoReply(sid){
+    if(!autoPending[sid]) autoRequest(sid, 0);
   }
 
   function onHostInput(){
@@ -788,6 +875,7 @@ button,textarea{font-family:inherit}
     if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); hostSend(); }
   });
   $('aInput').addEventListener('input', onHostInput);
+  $('autoBtn').addEventListener('click', function(){ setAuto(!autoOn); });
   $('fmtGuest').addEventListener('click', function(){
     fmtCode.guest = !fmtCode.guest;
     this.classList.toggle('on', fmtCode.guest);
