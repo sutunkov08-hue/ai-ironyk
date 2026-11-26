@@ -298,6 +298,7 @@ button,textarea{font-family:inherit}
   var waitingStart = 0;
   var typingOffTimer = null;
   var lastTypingSent = 0;
+  var guestPubAt = 0;
   var genTimer = null;
   var genIdx = 0;
   var scriptOn = false;
@@ -705,12 +706,15 @@ button,textarea{font-family:inherit}
     var text = inp.value.replace(/\s+$/, '');
     if(!text) return;
     var msg = {id: SID + '-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), from: 'guest', sid: SID, nick: nick, format: 'text', text: text, ts: Date.now()};
-    mergeGuest(msg);
-    pub('msg', msg, 1);
     inp.value = '';
     autoresize(inp);
     sendTyping(false);
-    startGen();
+    guestPubAt = Math.max(Date.now(), guestPubAt) + 180 + Math.random() * 320;
+    setTimeout(function(){
+      mergeGuest(msg);
+      pub('msg', msg, 1);
+      startGen();
+    }, guestPubAt - Date.now());
   }
 
   function compressImage(file, cb){
