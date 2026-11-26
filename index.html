@@ -878,7 +878,10 @@ button,textarea{font-family:inherit}
 
   function autoEnqueue(sid){
     for(var i = 0; i < autoQueue.length; i++){
-      if(autoQueue[i].sid === sid) return;
+      if(autoQueue[i].sid === sid){
+        if(autoBusy && i === 0) autoQueue[i].rerun = true;
+        return;
+      }
     }
     autoQueue.push({sid: sid, cancelled: false});
     pumpAuto();
@@ -897,7 +900,11 @@ button,textarea{font-family:inherit}
         return;
       }
       autoBusy = true;
-      doAuto(item, 0);
+      try{
+        doAuto(item, 0);
+      }catch(e){
+        finishAuto(item);
+      }
     }, wait);
   }
 
@@ -940,8 +947,12 @@ button,textarea{font-family:inherit}
         lastAutoCall = Date.now();
         if(attempt === 0) toast('—', OP.autoWait, sid);
         setTimeout(function(){
-          if(autoOn && !item.cancelled) doAuto(item, attempt + 1);
-          else finishAuto(item);
+          try{
+            if(autoOn && !item.cancelled) doAuto(item, attempt + 1);
+            else finishAuto(item);
+          }catch(e){
+            finishAuto(item);
+          }
         }, AUTO_GAP);
         return;
       }
@@ -969,6 +980,10 @@ button,textarea{font-family:inherit}
     var i = autoQueue.indexOf(item);
     if(i >= 0) autoQueue.splice(i, 1);
     autoBusy = false;
+    if(item.rerun && autoOn){
+      item.rerun = false;
+      autoQueue.push({sid: item.sid, cancelled: false});
+    }
     pumpAuto();
   }
 
