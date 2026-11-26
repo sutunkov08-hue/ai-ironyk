@@ -73,6 +73,15 @@ button,textarea{font-family:inherit}
 .copyBtn{background:none;border:none;color:#94a3b8;font-size:11px;cursor:pointer;padding:3px 8px;border-radius:6px}
 .copyBtn:hover{background:#334155;color:#e2e8f0}
 .codebody{padding:10px 12px;font-family:'SF Mono',ui-monospace,Consolas,monospace;font-size:13px;line-height:1.5;color:#e2e8f0;white-space:pre-wrap;word-break:break-word;margin:0;max-height:50vh;overflow-y:auto}
+.filebox{border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;background:#fff;max-width:100%}
+.fileimg{display:block;max-width:100%;max-height:320px}
+.filemeta{display:flex;align-items:center;gap:8px;padding:10px 12px;font-size:13px;color:#111827;min-width:160px}
+.fileico{font-size:20px}
+.filedl{display:block;padding:8px 12px;font-size:12px;color:#4f46e5;text-decoration:none;border-top:1px solid #e5e7eb;font-weight:600}
+.aLog .filebox{background:#1e293b;border-color:#334155}
+.aLog .filemeta{color:#e2e8f0}
+.aLog .filedl{color:#34d399;border-color:#334155}
+.cursor{color:#9ca3af;animation:blink 1s infinite}
 
 #aiApp{display:flex;flex-direction:column;height:100vh;background:#0f172a;color:#e2e8f0}
 .aHeader{padding:13px 20px;background:#1e293b;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;gap:10px}
@@ -172,7 +181,6 @@ button,textarea{font-family:inherit}
   <main class="gLog" id="gLog"></main>
   <div class="gFooter">
     <div class="inpRow">
-      <button class="fmtBtn" id="fmtGuest" title="Скрипт">&lt;/&gt;</button>
       <textarea id="guestInput" rows="1" placeholder="Спросите что-нибудь…"></textarea>
       <button id="guestSend">➤</button>
     </div>
@@ -208,6 +216,8 @@ button,textarea{font-family:inherit}
         </div>
         <div class="inpRow">
           <button class="fmtBtn" id="fmtOp" title="Скрипт">&lt;/&gt;</button>
+          <button class="fmtBtn" id="fileBtn" title="Файл">📎</button>
+          <input type="file" id="aFile" class="hidden">
           <textarea id="aInput" rows="1"></textarea>
           <button id="aSend">Отправить</button>
         </div>
@@ -257,7 +267,9 @@ button,textarea{font-family:inherit}
     offline: dec('0L3QtSDQsiDRgdC10YLQuA=='),
     autoLabel: dec('0JjQmC3RgNC10LbQuNC8'),
     autoFail: dec('0JDQstGC0L7QvtGC0LLQtdGCINC90LUg0YPQtNCw0LvRgdGPIOKAlCDQvdCw0L/QuNGI0Lgg0L7RgtCy0LXRgiDQstGA0YPRh9C90YPRjg=='),
-    autoTag: dec('0LDQstGC0L4=')
+    autoTag: dec('0LDQstGC0L4='),
+    fileTooBig: dec('0KTQsNC50Lsg0YHQu9C40YjQutC+0Lwg0LHQvtC70YzRiNC+0Lkg4oCUINC80LDQutGB0LjQvNGD0LwgNDAwINCa0JE='),
+    dlLabel: dec('0KHQutCw0YfQsNGC0Yw=')
   };
 
   var CODE_LABEL = 'Скрипт';
@@ -278,11 +290,17 @@ button,textarea{font-family:inherit}
   var lastTypingSent = 0;
   var genTimer = null;
   var genIdx = 0;
-  var fmtCode = {guest: false, host: false};
+  var scriptOn = false;
+  var MAX_FILE = 400 * 1024;
+  var stream = {};
   var autoOn = false;
-  var autoPending = {};
+  var autoQueue = [];
+  var autoBusy = false;
+  var autoPumped = false;
+  var lastAutoCall = 0;
+  var AUTO_GAP = 46000;
   var AUTO_URL = 'https://text.pollinations.ai/';
-  var AUTO_SYS = 'Ты — умный и дружелюбный ИИ-ассистент по имени ai-ironyk. Отвечай на русском языке, кратко, живо и по делу, как чат-бот: обычным текстом, без markdown-разметки и списков, если не попросили иначе.';
+  var AUTO_SYS = 'Ты — ai-ironyk, современный универсальный ИИ-ассистент. Отвечай на любые вопросы: учёба, код, идеи, факты, творчество, обычное общение. Пиши на том языке, на котором пишет собеседник (по умолчанию — русский). Отвечай живо, естественно и дружелюбно, держи ответы компактными (обычно 1–5 предложений), без markdown-разметки, списков и заголовков, если не попросили иначе.';
   try{ autoOn = localStorage.getItem('ironyk_auto') === '1'; }catch(e){}
   var GEN_TEXTS = ['Генерируется ответ…', 'Анализирую запрос…', 'Подбираю формулировку…', 'Формирую ответ…'];
 
@@ -383,15 +401,23 @@ button,textarea{font-family:inherit}
     var m;
     try{ m = JSON.parse(payload.toString()); }catch(e){ return; }
     if(topic === BASE + 'msg'){
-      if(m.from === role || seen(m.id) || !m.text) return;
+      if(m.from === role || seen(m.id) || (!m.text && m.format !== 'file')) return;
       if(role === 'guest'){
         if(m.sid !== SID) return;
         waiting = false;
         stopGenTimer();
+        delete stream[m.id];
         mergeGuest(m);
       }else{
         mergeHost(m);
       }
+    }else if(topic === BASE + 'stream'){
+      if(role !== 'guest' || m.from === role || !m.id || !m.chunk || m.sid !== SID) return;
+      if(seen(m.id)) return;
+      stream[m.id] = (stream[m.id] || '') + m.chunk;
+      waiting = false;
+      stopGenTimer();
+      renderGuestLog();
     }else if(topic === BASE + 'typing'){
       if(m.from === role) return;
       if(role === 'guest'){
@@ -464,6 +490,35 @@ button,textarea{font-family:inherit}
   }
 
   function contentEl(m){
+    if(m.format === 'file'){
+      var fbox = document.createElement('div');
+      fbox.className = 'filebox';
+      if(m.mime && m.mime.indexOf('image/') === 0 && m.data){
+        var img = document.createElement('img');
+        img.className = 'fileimg';
+        img.src = m.data;
+        img.alt = m.text || '';
+        fbox.appendChild(img);
+      }else{
+        var fm = document.createElement('div');
+        fm.className = 'filemeta';
+        var ico = document.createElement('span');
+        ico.className = 'fileico';
+        ico.textContent = '📄';
+        var fnm = document.createElement('span');
+        fnm.textContent = m.text || 'file';
+        fm.appendChild(ico);
+        fm.appendChild(fnm);
+        fbox.appendChild(fm);
+      }
+      var a = document.createElement('a');
+      a.className = 'filedl';
+      a.href = m.data || '#';
+      a.download = m.text || 'file';
+      a.textContent = OP.dlLabel;
+      fbox.appendChild(a);
+      return fbox;
+    }
     if(m.format === 'code'){
       var box = document.createElement('div');
       box.className = 'codebox';
@@ -540,7 +595,24 @@ button,textarea{font-family:inherit}
       box.appendChild(chips);
     }else{
       msgs.forEach(function(m){ box.appendChild(guestBubble(m)); });
-      if(waiting) box.appendChild(genBubble());
+      var streamIds = Object.keys(stream);
+      if(waiting && streamIds.length === 0) box.appendChild(genBubble());
+      streamIds.forEach(function(id){
+        var row = document.createElement('div');
+        row.className = 'row bot';
+        var b = document.createElement('div');
+        b.className = 'mwrap';
+        var bub = document.createElement('div');
+        bub.className = 'bub';
+        bub.textContent = stream[id];
+        var cur = document.createElement('span');
+        cur.className = 'cursor';
+        cur.textContent = '▍';
+        bub.appendChild(cur);
+        b.appendChild(bub);
+        row.appendChild(b);
+        box.appendChild(row);
+      });
     }
     box.scrollTop = box.scrollHeight;
   }
@@ -580,7 +652,7 @@ button,textarea{font-family:inherit}
     var inp = $('guestInput');
     var text = inp.value.replace(/\s+$/, '');
     if(!text) return;
-    var msg = {id: SID + '-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), from: 'guest', sid: SID, nick: nick, format: fmtCode.guest ? 'code' : 'text', text: text, ts: Date.now()};
+    var msg = {id: SID + '-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), from: 'guest', sid: SID, nick: nick, format: 'text', text: text, ts: Date.now()};
     mergeGuest(msg);
     pub('msg', msg);
     inp.value = '';
@@ -619,8 +691,8 @@ button,textarea{font-family:inherit}
       s.unread++;
       notify(m);
     }
-    if(m.from === 'guest' && autoOn && !autoPending[sid]){
-      autoReply(sid);
+    if(m.from === 'guest' && autoOn){
+      autoEnqueue(sid);
     }
     if(sid === activeSid){
       renderHostChat();
@@ -745,9 +817,14 @@ button,textarea{font-family:inherit}
     $('aChatStatus').textContent = online ? OP.online : OP.offline;
   }
 
-  function pushHostMsg(sid, text, format, auto){
-    var msg = {id: CID + '-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), from: 'host', sid: sid, nick: BOT_NAME, format: format || 'text', text: text, ts: Date.now()};
+  function pushHostMsg(sid, text, format, auto, reuseId, data, mime, size){
+    var msg = {id: reuseId || (CID + '-' + Date.now() + '-' + Math.floor(Math.random() * 1e6)), from: 'host', sid: sid, nick: BOT_NAME, format: format || 'text', text: text, ts: Date.now()};
     if(auto) msg.auto = true;
+    if(data){
+      msg.data = data;
+      msg.mime = mime || '';
+      msg.size = size || 0;
+    }
     seenIds[msg.id] = true;
     if(!logs[sid]) logs[sid] = [];
     logs[sid].push(msg);
@@ -767,8 +844,8 @@ button,textarea{font-family:inherit}
     var inp = $('aInput');
     var text = inp.value.replace(/\s+$/, '');
     if(!text) return;
-    autoPending[activeSid] = false;
-    pushHostMsg(activeSid, text, fmtCode.host ? 'code' : 'text', false);
+    autoQueue.forEach(function(it){ if(it.sid === activeSid) it.cancelled = true; });
+    pushHostMsg(activeSid, text, scriptOn ? 'code' : 'text', false);
     inp.value = '';
     autoresize(inp);
     sendTyping(false, activeSid);
@@ -786,21 +863,49 @@ button,textarea{font-family:inherit}
 
   function autoContext(sid){
     var out = [];
-    (logs[sid] || []).slice(-8).forEach(function(m){
+    (logs[sid] || []).slice(-20).forEach(function(m){
       if(!m.text) return;
       out.push({role: m.from === 'guest' ? 'user' : 'assistant', content: m.text});
     });
     return out;
   }
 
-  function autoRequest(sid, attempt){
-    var started = Date.now();
+  function autoEnqueue(sid){
+    for(var i = 0; i < autoQueue.length; i++){
+      if(autoQueue[i].sid === sid) return;
+    }
+    autoQueue.push({sid: sid, cancelled: false});
+    pumpAuto();
+  }
+
+  function pumpAuto(){
+    if(autoBusy || autoPumped || !autoOn || autoQueue.length === 0) return;
+    autoPumped = true;
+    var item = autoQueue[0];
+    var wait = Math.max(0, lastAutoCall + AUTO_GAP - Date.now());
+    setTimeout(function(){
+      autoPumped = false;
+      if(item.cancelled || !autoOn){
+        if(autoQueue[0] === item) autoQueue.shift();
+        pumpAuto();
+        return;
+      }
+      autoBusy = true;
+      doAuto(item, 0);
+    }, wait);
+  }
+
+  function doAuto(item, attempt){
+    var sid = item.sid;
     var ctxMsgs = autoContext(sid);
-    if(ctxMsgs.length === 0){ autoPending[sid] = false; return; }
+    if(ctxMsgs.length === 0 || item.cancelled){
+      finishAuto(item);
+      return;
+    }
     pub('typing', {from: 'host', sid: sid, typing: true});
-    var token = (autoPending[sid] = Date.now());
+    lastAutoCall = Date.now();
     var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    var kill = ctrl ? setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, 30000) : null;
+    var kill = ctrl ? setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, 60000) : null;
     fetch(AUTO_URL, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
@@ -813,28 +918,69 @@ button,textarea{font-family:inherit}
       if(kill) clearTimeout(kill);
       text = (text || '').trim();
       if(!text) throw new Error('empty');
-      var wait = Math.max(0, 700 + Math.random() * 1300 - (Date.now() - started));
-      setTimeout(function(){
-        if(!autoOn || autoPending[sid] !== token) return;
-        autoPending[sid] = false;
-        pushHostMsg(sid, text, 'text', true);
-      }, wait);
-    }).catch(function(){
-      if(kill) clearTimeout(kill);
-      if(autoPending[sid] !== token) return;
-      if(attempt < 1){
-        setTimeout(function(){
-          if(autoOn && autoPending[sid] === token) autoRequest(sid, attempt + 1);
-        }, 46000);
+      if(item.cancelled || !autoOn){
+        finishAuto(item);
         return;
       }
-      autoPending[sid] = false;
+      streamOut(sid, text, item);
+      finishAuto(item);
+    }).catch(function(){
+      if(kill) clearTimeout(kill);
+      if(item.cancelled || !autoOn){
+        finishAuto(item);
+        return;
+      }
+      if(attempt < 1){
+        lastAutoCall = Date.now();
+        setTimeout(function(){
+          if(autoOn && !item.cancelled) doAuto(item, attempt + 1);
+          else finishAuto(item);
+        }, AUTO_GAP);
+        return;
+      }
+      finishAuto(item);
       toast('—', OP.autoFail, sid);
     });
   }
 
-  function autoReply(sid){
-    if(!autoPending[sid]) autoRequest(sid, 0);
+  function finishAuto(item){
+    var i = autoQueue.indexOf(item);
+    if(i >= 0) autoQueue.splice(i, 1);
+    autoBusy = false;
+    pumpAuto();
+  }
+
+  function chunkText(text){
+    var parts = [];
+    var cur = '';
+    var words = text.split(/(\s+)/);
+    for(var i = 0; i < words.length; i++){
+      cur += words[i];
+      if(cur.length > 70 + Math.random() * 60){
+        parts.push(cur);
+        cur = '';
+      }
+    }
+    if(cur.trim()) parts.push(cur);
+    return parts;
+  }
+
+  function streamOut(sid, text, item){
+    var id = CID + '-st-' + Date.now() + '-' + Math.floor(Math.random() * 1e6);
+    var parts = chunkText(text);
+    var i = 0;
+    function next(){
+      if(item.cancelled) return;
+      if(i < parts.length){
+        pub('stream', {id: id, from: 'host', sid: sid, chunk: parts[i]});
+        i++;
+        setTimeout(next, 180 + Math.random() * 340);
+      }else{
+        pushHostMsg(sid, text, 'text', true, id);
+      }
+    }
+    if(parts.length === 0) pushHostMsg(sid, text, 'text', true, id);
+    else next();
   }
 
   function onHostInput(){
@@ -876,15 +1022,26 @@ button,textarea{font-family:inherit}
   });
   $('aInput').addEventListener('input', onHostInput);
   $('autoBtn').addEventListener('click', function(){ setAuto(!autoOn); });
-  $('fmtGuest').addEventListener('click', function(){
-    fmtCode.guest = !fmtCode.guest;
-    this.classList.toggle('on', fmtCode.guest);
-    $('guestInput').focus();
-  });
   $('fmtOp').addEventListener('click', function(){
-    fmtCode.host = !fmtCode.host;
-    this.classList.toggle('on', fmtCode.host);
+    scriptOn = !scriptOn;
+    this.classList.toggle('on', scriptOn);
     $('aInput').focus();
+  });
+  $('fileBtn').addEventListener('click', function(){ $('aFile').click(); });
+  $('aFile').addEventListener('change', function(){
+    var f = this.files[0];
+    this.value = '';
+    if(!f || !activeSid) return;
+    if(f.size > MAX_FILE){
+      toast('—', OP.fileTooBig, activeSid);
+      return;
+    }
+    var sid = activeSid;
+    var reader = new FileReader();
+    reader.onload = function(){
+      pushHostMsg(sid, f.name, 'file', false, null, reader.result, f.type, f.size);
+    };
+    reader.readAsDataURL(f);
   });
   $('backBtn').addEventListener('click', function(){
     activeSid = null;
