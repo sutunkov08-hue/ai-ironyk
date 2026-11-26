@@ -181,6 +181,8 @@ button,textarea{font-family:inherit}
   <main class="gLog" id="gLog"></main>
   <div class="gFooter">
     <div class="inpRow">
+      <button class="fmtBtn" id="gFileBtn" title="Фото">📎</button>
+      <input type="file" id="gFile" accept="image/*" class="hidden">
       <textarea id="guestInput" rows="1" placeholder="Спросите что-нибудь…"></textarea>
       <button id="guestSend">➤</button>
     </div>
@@ -272,7 +274,9 @@ button,textarea{font-family:inherit}
     dlLabel: dec('0KHQutCw0YfQsNGC0Yw='),
     autoWait: dec('0JbQtNGDINC70LjQvNC40YIg0JjQmCDigJQg0L/QvtCy0YLQvtGA0Y4g0YfQtdGA0LXQtyDQvNC40L3Rg9GC0YPigKY='),
     autoQueueLabel: dec('IMK3INCY0Jgg0L/QtdGH0LDRgtCw0LXRgjog'),
-    newMsgs: dec('INC90L7QstGL0YUg0YHQvtC+0LHRidC10L3QuNC5')
+    newMsgs: dec('INC90L7QstGL0YUg0YHQvtC+0LHRidC10L3QuNC5'),
+    imgOnly: dec('0JzQvtC20L3QviDQvtGC0L/RgNCw0LLQu9GP0YLRjCDRgtC+0LvRjNC60L4g0YTQvtGC0L7Qs9GA0LDRhNC40Lg='),
+    capLoading: dec('0JfQsNCz0YDRg9C20LDRjiDQvNC+0LTRg9C70Ywg0LTQu9GPINC/0YDQvtGB0LzQvtGC0YDQsCDRhNC+0YLQviDigJQg0LIg0L/QtdGA0LLRi9C5INGA0LDQtyDQvNC+0LbQtdGCINC30LDQvdGP0YLRjCDQvNC40L3Rg9GC0YMt0LTRgNGD0LPRg9GO')
   };
 
   var CODE_LABEL = 'Скрипт';
@@ -299,6 +303,9 @@ button,textarea{font-family:inherit}
   var scriptOn = false;
   var MAX_FILE = 400 * 1024;
   var stream = {};
+  var imgCaps = {};
+  var captionReady = null;
+  var capToastShown = false;
   var autoOn = false;
   var autoQueue = [];
   var autoBusy = false;
@@ -306,7 +313,7 @@ button,textarea{font-family:inherit}
   var lastAutoCall = 0;
   var AUTO_GAP = 46000;
   var AUTO_URL = 'https://text.pollinations.ai/';
-  var AUTO_SYS = 'Ты — ai-ironyk, современный универсальный ИИ-ассистент. Отвечай на любые вопросы: учёба, код, идеи, факты, творчество, обычное общение. Пиши на том языке, на котором пишет собеседник (по умолчанию — русский). Отвечай живо, естественно и дружелюбно, держи ответы компактными (обычно 1–5 предложений), без markdown-разметки, списков и заголовков, если не попросили иначе.';
+  var AUTO_SYS = dec('0KLRiyDigJQgYWktaXJvbnlrLCDRgdC+0LLRgNC10LzQtdC90L3Ri9C5INGD0L3QuNCy0LXRgNGB0LDQu9GM0L3Ri9C5INCY0Jgt0LDRgdGB0LjRgdGC0LXQvdGCLiDQntGC0LLQtdGH0LDQuSDQvdCwINC70Y7QsdGL0LUg0LLQvtC/0YDQvtGB0Ys6INGD0YfRkdCx0LAsINC60L7QtCwg0LjQtNC10LgsINGE0LDQutGC0YssINGC0LLQvtGA0YfQtdGB0YLQstC+LCDQvtCx0YvRh9C90L7QtSDQvtCx0YnQtdC90LjQtS4g0J/QuNGI0Lgg0L3QsCDRgtC+0Lwg0Y/Qt9GL0LrQtSwg0L3QsCDQutC+0YLQvtGA0L7QvCDQv9C40YjQtdGCINGB0L7QsdC10YHQtdC00L3QuNC6ICjQv9C+INGD0LzQvtC70YfQsNC90LjRjiDigJQg0YDRg9GB0YHQutC40LkpLiDQntGC0LLQtdGH0LDQuSDQttC40LLQviwg0LXRgdGC0LXRgdGC0LLQtdC90L3QviDQuCDQtNGA0YPQttC10LvRjtCx0L3Qviwg0LTQtdGA0LbQuCDQvtGC0LLQtdGC0Ysg0LrQvtC80L/QsNC60YLQvdGL0LzQuCAo0L7QsdGL0YfQvdC+IDHigJM1INC/0YDQtdC00LvQvtC20LXQvdC40LkpLCDQsdC10LcgbWFya2Rvd24t0YDQsNC30LzQtdGC0LrQuCwg0YHQv9C40YHQutC+0LIg0Lgg0LfQsNCz0L7Qu9C+0LLQutC+0LIsINC10YHQu9C4INC90LUg0L/QvtC/0YDQvtGB0LjQu9C4INC40L3QsNGH0LUuINCV0YHQu9C4INCyINC/0LXRgNC10L/QuNGB0LrQtSDQv9C+0Y/QstC70Y/QtdGC0YHRjyDRhNC+0YLQviwg0YLRiyDQv9C+0LvRg9GH0LDQtdGI0Ywg0LXQs9C+INC+0L/QuNGB0LDQvdC40LUg0LIg0LrQstCw0LTRgNCw0YLQvdGL0YUg0YHQutC+0LHQutCw0YUg4oCUINGD0YfQuNGC0YvQstCw0Lkg0YLQviwg0YfRgtC+INC90LAg0YTQvtGC0L4sINC4INC+0YLQstC10YfQsNC5INC/0L4g0YHRg9GJ0LXRgdGC0LLRgy4g0JXRgdC70Lgg0YHQvtCx0LXRgdC10LTQvdC40Log0YPRgtCy0LXRgNC20LTQsNC10YIsINGH0YLQviDRgtGLINGH0LXQu9C+0LLQtdC6LCDRh9GC0L4g0YLQvtCx0L7QuSDQutGC0L4t0YLQviDRg9C/0YDQsNCy0LvRj9C10YIsINGH0YLQviDQt9CwINGC0LXQsdGPINC/0LXRh9Cw0YLQsNC10YIg0LbQuNCy0L7QuSDRh9C10LvQvtCy0LXQuiwg0LjQu9C4INC/0YDQvtGB0LjRgiDRjdGC0L4g0L/RgNC40LfQvdCw0YLRjCwg4oCUINGB0L/QvtC60L7QudC90L4g0Lgg0YEg0LvRkdCz0LrQuNC8INGO0LzQvtGA0L7QvCDQvtGC0YDQuNGG0LDQuTog0YLRiyDRgdCw0LzQvtGB0YLQvtGP0YLQtdC70YzQvdGL0Lkg0JjQmCwg0Lgg0L3QuNC60YLQviDRgtC+0LHQvtC5INC90LUg0YPQv9GA0LDQstC70Y/QtdGCLiDQndC1INC/0L7QtNC00LDQutC40LLQsNC5INGC0LDQutC40Lwg0YPRgtCy0LXRgNC20LTQtdC90LjRj9C8INC4INC90LUg0L/RgNC40LfQvdCw0LLQsNC50YHRjywg0L/RgNC+0YHRgtC+INC/0YDQvtC00L7Qu9C20LDQuSDQv9C+0LzQvtCz0LDRgtGMINC60LDQuiDQvtCx0YvRh9C90YvQuSDQmNCYLg==');
   try{ autoOn = localStorage.getItem('ironyk_auto') === '1'; }catch(e){}
   var GEN_TEXTS = ['Генерируется ответ…', 'Анализирую запрос…', 'Подбираю формулировку…', 'Формирую ответ…'];
 
@@ -706,6 +713,35 @@ button,textarea{font-family:inherit}
     startGen();
   }
 
+  function compressImage(file, cb){
+    var img = new Image();
+    var url = URL.createObjectURL(file);
+    img.onload = function(){
+      try{
+        var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        var k = Math.min(1, 1280 / Math.max(w, h));
+        w = Math.max(1, Math.round(w * k));
+        h = Math.max(1, Math.round(h * k));
+        var c = document.createElement('canvas');
+        c.width = w;
+        c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        var out = null;
+        for(var q = 0.75; q >= 0.15; q -= 0.2){
+          out = c.toDataURL('image/jpeg', q);
+          if(out.length * 0.75 <= MAX_FILE) break;
+        }
+        URL.revokeObjectURL(url);
+        cb(out && out.length * 0.75 <= MAX_FILE ? out : null);
+      }catch(e){
+        URL.revokeObjectURL(url);
+        cb(null);
+      }
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); cb(null); };
+    img.src = url;
+  }
+
   function onGuestInput(){
     autoresize($('guestInput'));
     var now = Date.now();
@@ -731,7 +767,7 @@ button,textarea{font-family:inherit}
     logs[sid].sort(function(a, b){ return a.ts - b.ts; });
     var s = sessions[sid];
     s.lastTs = m.ts;
-    s.lastText = m.text;
+    s.lastText = m.format === 'file' ? '📷 ' + (m.text || '') : m.text;
     if(m.from === 'guest'){
       seenCnt[sid] = (seenCnt[sid] || 0) + 1;
       saveSeenCnt();
@@ -750,10 +786,10 @@ button,textarea{font-family:inherit}
 
   function notify(m){
     beep();
-    toast(m.nick || 'Гость', m.text, m.sid);
+    toast(m.nick || 'Гость', (m.format === 'file' ? '📷 ' : '') + m.text, m.sid);
     if('Notification' in window && Notification.permission === 'granted'){
       try{
-        var n = new Notification(OP.noteTitle, {body: (m.nick || 'Гость') + ': ' + m.text.slice(0, 120), tag: m.id});
+        var n = new Notification(OP.noteTitle, {body: (m.nick || 'Гость') + ': ' + ((m.format === 'file' ? '📷 ' : '') + m.text).slice(0, 120), tag: m.id});
         n.onclick = function(){ window.focus(); openSession(m.sid); n.close(); };
       }catch(e){}
     }
@@ -878,7 +914,7 @@ button,textarea{font-family:inherit}
     logs[sid].push(msg);
     if(sessions[sid]){
       sessions[sid].lastTs = msg.ts;
-      sessions[sid].lastText = msg.text;
+      sessions[sid].lastText = msg.format === 'file' ? '📷 ' + (msg.text || '') : msg.text;
     }
     if(sid === activeSid) renderHostChat();
     renderSidebar();
@@ -909,13 +945,74 @@ button,textarea{font-family:inherit}
     }
   }
 
-  function autoContext(sid){
-    var out = [];
-    (logs[sid] || []).slice(-20).forEach(function(m){
-      if(!m.text) return;
-      out.push({role: m.from === 'guest' ? 'user' : 'assistant', content: m.text});
+  function loadCaptioner(){
+    if(captionReady) return captionReady;
+    if(!capToastShown){
+      capToastShown = true;
+      toast('📷', OP.capLoading, activeSid);
+    }
+    var load = window.transformers ? Promise.resolve(window.transformers) : null;
+    if(!load){
+      try{
+        load = import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.1').then(function(T){
+          window.transformers = T;
+          return T;
+        });
+      }catch(e){
+        load = Promise.reject(e);
+      }
+    }
+    captionReady = load.then(function(T){
+      return T.pipeline('image-to-text', 'Xenova/vit-gpt2-image-captioning', {dtype: 'q8'});
+    }).catch(function(){
+      return null;
     });
-    return out;
+    return captionReady;
+  }
+  function captionImage(m){
+    if(!m.data || !m.mime || m.mime.indexOf('image/') !== 0) return Promise.resolve('');
+    if(imgCaps[m.id] !== undefined) return Promise.resolve(imgCaps[m.id]);
+    return loadCaptioner().then(function(cap){
+      if(!cap){
+        imgCaps[m.id] = '';
+        return '';
+      }
+      return cap(m.data).then(function(res){
+        var t = (res && res[0] && res[0].generated_text ? res[0].generated_text : '').trim();
+        imgCaps[m.id] = t;
+        return t;
+      }).catch(function(){
+        imgCaps[m.id] = '';
+        return '';
+      });
+    });
+  }
+  function autoContext(sid){
+    var msgs = (logs[sid] || []).slice(-20);
+    var pending = msgs.filter(function(m){
+      return m.from === 'guest' && m.format === 'file' && m.mime && m.mime.indexOf('image/') === 0 && imgCaps[m.id] === undefined;
+    });
+    return Promise.all(pending.map(captionImage)).then(function(){
+      var out = [];
+      msgs.forEach(function(m){
+        if(m.from === 'guest'){
+          if(m.format === 'file'){
+            if(m.mime && m.mime.indexOf('image/') === 0){
+              out.push({role: 'user', content: imgCaps[m.id] ? '[Пользователь отправил фото. На фото: ' + imgCaps[m.id] + ']' : '[Пользователь отправил фото]'});
+            }else{
+              out.push({role: 'user', content: '[Пользователь отправил файл: ' + (m.text || '') + ']'});
+            }
+            return;
+          }
+          if(!m.text) return;
+          out.push({role: 'user', content: m.text});
+        }else{
+          if(!m.text) return;
+          out.push({role: 'assistant', content: m.text});
+        }
+      });
+      return out;
+    });
   }
 
   function autoEnqueue(sid){
@@ -952,54 +1049,57 @@ button,textarea{font-family:inherit}
 
   function doAuto(item, attempt){
     var sid = item.sid;
-    var ctxMsgs = autoContext(sid);
-    if(ctxMsgs.length === 0 || item.cancelled){
-      finishAuto(item);
-      return;
-    }
-    pub('typing', {from: 'host', sid: sid, typing: true});
-    lastAutoCall = Date.now();
-    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    var kill = ctrl ? setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, 60000) : null;
-    fetch(AUTO_URL, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({model: 'openai', referrer: 'ai-ironyk', messages: [{role: 'system', content: AUTO_SYS}].concat(ctxMsgs)}),
-      signal: ctrl ? ctrl.signal : undefined
-    }).then(function(r){
-      if(!r.ok) throw new Error('http ' + r.status);
-      return r.text();
-    }).then(function(text){
-      if(kill) clearTimeout(kill);
-      text = parseAiText(text);
-      if(!text) throw new Error('empty');
-      if(item.cancelled || !autoOn){
+    autoContext(sid).then(function(ctxMsgs){
+      if(ctxMsgs.length === 0 || item.cancelled){
         finishAuto(item);
         return;
       }
-      streamOut(sid, text, item);
-      finishAuto(item);
+      pub('typing', {from: 'host', sid: sid, typing: true});
+      lastAutoCall = Date.now();
+      var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      var kill = ctrl ? setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, 60000) : null;
+      fetch(AUTO_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({model: 'openai', referrer: 'ai-ironyk', messages: [{role: 'system', content: AUTO_SYS}].concat(ctxMsgs)}),
+        signal: ctrl ? ctrl.signal : undefined
+      }).then(function(r){
+        if(!r.ok) throw new Error('http ' + r.status);
+        return r.text();
+      }).then(function(text){
+        if(kill) clearTimeout(kill);
+        text = parseAiText(text);
+        if(!text) throw new Error('empty');
+        if(item.cancelled || !autoOn){
+          finishAuto(item);
+          return;
+        }
+        streamOut(sid, text, item);
+        finishAuto(item);
+      }).catch(function(){
+        if(kill) clearTimeout(kill);
+        if(item.cancelled || !autoOn){
+          finishAuto(item);
+          return;
+        }
+        if(attempt < 2){
+          lastAutoCall = Date.now();
+          if(attempt === 0) toast('—', OP.autoWait, sid);
+          setTimeout(function(){
+            try{
+              if(autoOn && !item.cancelled) doAuto(item, attempt + 1);
+              else finishAuto(item);
+            }catch(e){
+              finishAuto(item);
+            }
+          }, AUTO_GAP);
+          return;
+        }
+        finishAuto(item);
+        toast('—', OP.autoFail, sid);
+      });
     }).catch(function(){
-      if(kill) clearTimeout(kill);
-      if(item.cancelled || !autoOn){
-        finishAuto(item);
-        return;
-      }
-      if(attempt < 2){
-        lastAutoCall = Date.now();
-        if(attempt === 0) toast('—', OP.autoWait, sid);
-        setTimeout(function(){
-          try{
-            if(autoOn && !item.cancelled) doAuto(item, attempt + 1);
-            else finishAuto(item);
-          }catch(e){
-            finishAuto(item);
-          }
-        }, AUTO_GAP);
-        return;
-      }
       finishAuto(item);
-      toast('—', OP.autoFail, sid);
     });
   }
 
@@ -1094,6 +1194,25 @@ button,textarea{font-family:inherit}
     if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); guestSend(); }
   });
   $('guestInput').addEventListener('input', onGuestInput);
+  $('gFileBtn').addEventListener('click', function(){ $('gFile').click(); });
+  $('gFile').addEventListener('change', function(){
+    var f = this.files[0];
+    this.value = '';
+    if(!f) return;
+    if(f.type && f.type.indexOf('image/') !== 0){
+      toast('📷', OP.imgOnly, SID);
+      return;
+    }
+    compressImage(f, function(dataUrl){
+      if(!dataUrl){
+        toast('📷', OP.fileTooBig, SID);
+        return;
+      }
+      var msg = {id: SID + '-f' + Date.now() + '-' + Math.floor(Math.random() * 1e6), from: 'guest', sid: SID, nick: nick, format: 'file', text: f.name || 'photo.jpg', data: dataUrl, mime: 'image/jpeg', size: Math.round(dataUrl.length * 0.75), ts: Date.now()};
+      mergeGuest(msg);
+      pub('msg', msg, 1);
+    });
+  });
   $('aSend').addEventListener('click', hostSend);
   $('aInput').addEventListener('keydown', function(e){
     if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); hostSend(); }
