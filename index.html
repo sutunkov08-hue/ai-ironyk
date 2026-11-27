@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ai-ironyk — чат с ИИ</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
+<script data-fb>if(typeof mqtt==='undefined'){document.write('<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"><\/script>');}</script>
+<script data-fb>if(typeof mqtt==='undefined'){document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"><\/script>');}</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
@@ -321,8 +323,23 @@ button,textarea{font-family:inherit}
   function $(id){ return document.getElementById(id); }
   function esc(t){ var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
   function timeStr(ts){ return new Date(ts).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}); }
+  var outbox = [];
   function pub(kind, obj, qos){
-    try{ if(client && client.connected) client.publish(BASE + kind, JSON.stringify(obj), {qos: qos || 0}); }catch(e){}
+    qos = qos || 0;
+    if(client && client.connected){
+      try{ client.publish(BASE + kind, JSON.stringify(obj), {qos: qos}); return; }catch(e){}
+    }
+    if(qos >= 1){
+      outbox.push({kind: kind, obj: obj, qos: qos});
+      if(outbox.length > 300) outbox.shift();
+    }
+  }
+  function flushOutbox(){
+    if(!client || !client.connected || outbox.length === 0) return;
+    var out = outbox.splice(0, outbox.length);
+    out.forEach(function(o){
+      try{ client.publish(BASE + o.kind, JSON.stringify(o.obj), {qos: o.qos}); }catch(e){}
+    });
   }
   function saveSeenCnt(){
     try{ localStorage.setItem('ironyk_seen', JSON.stringify(seenCnt)); }catch(e){}
@@ -379,8 +396,10 @@ button,textarea{font-family:inherit}
 
   /* ---------- Связь ---------- */
   function connect(){
+    if(client) return;
     if(typeof mqtt === 'undefined'){
       connBadge(OP.connBad, '#f87171');
+      setTimeout(connect, 2500);
       return;
     }
     client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
@@ -394,6 +413,7 @@ button,textarea{font-family:inherit}
       client.subscribe(BASE + '#', {qos: 1});
       connBadge(role === 'guest' ? '' : OP.connOK, '#34d399');
       pub('sync', role === 'guest' ? {req: role, cid: CID, sid: SID, nick: nick} : {req: role, cid: CID}, 1);
+      flushOutbox();
     });
     client.on('reconnect', function(){ connBadge(OP.connRe, '#fbbf24'); });
     client.on('close', function(){ connBadge(OP.connBad, '#f87171'); });
