@@ -286,7 +286,8 @@ button,textarea{font-family:inherit}
   var COPIED_LABEL = 'Скопировано ✓';
 
   var role = null;
-  var client = null;
+  var clients = [];
+  var BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt'];
   var SID = null;
   var nick = '';
   var logs = {};
@@ -324,21 +325,30 @@ button,textarea{font-family:inherit}
   function esc(t){ var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
   function timeStr(ts){ return new Date(ts).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}); }
   var outbox = [];
+  function anyConnected(){
+    for(var i = 0; i < clients.length; i++){ if(clients[i].connected) return true; }
+    return false;
+  }
   function pub(kind, obj, qos){
     qos = qos || 0;
-    if(client && client.connected){
-      try{ client.publish(BASE + kind, JSON.stringify(obj), {qos: qos}); return; }catch(e){}
-    }
-    if(qos >= 1){
+    var payload = JSON.stringify(obj);
+    var sent = false;
+    clients.forEach(function(c){
+      if(c.connected){ try{ c.publish(BASE + kind, payload, {qos: qos}); sent = true; }catch(e){} }
+    });
+    if(!sent && qos >= 1){
       outbox.push({kind: kind, obj: obj, qos: qos});
       if(outbox.length > 300) outbox.shift();
     }
   }
   function flushOutbox(){
-    if(!client || !client.connected || outbox.length === 0) return;
+    if(outbox.length === 0) return;
     var out = outbox.splice(0, outbox.length);
     out.forEach(function(o){
-      try{ client.publish(BASE + o.kind, JSON.stringify(o.obj), {qos: o.qos}); }catch(e){}
+      var payload = JSON.stringify(o.obj);
+      clients.forEach(function(c){
+        if(c.connected){ try{ c.publish(BASE + o.kind, payload, {qos: o.qos}); }catch(e){} }
+      });
     });
   }
   function saveSeenCnt(){
@@ -396,29 +406,32 @@ button,textarea{font-family:inherit}
 
   /* ---------- Связь ---------- */
   function connect(){
-    if(client) return;
+    if(clients.length) return;
     if(typeof mqtt === 'undefined'){
       connBadge(OP.connBad, '#f87171');
       setTimeout(connect, 2500);
       return;
     }
-    client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
-      clientId: 'nc_' + role + '_' + CID,
-      keepalive: 30,
-      reconnectPeriod: 3000,
-      connectTimeout: 10000,
-      clean: true
+    BROKERS.forEach(function(url, idx){
+      var c = mqtt.connect(url, {
+        clientId: 'nc_' + role + '_' + CID + '_' + idx,
+        keepalive: 30,
+        reconnectPeriod: 3000,
+        connectTimeout: 8000,
+        clean: true
+      });
+      clients.push(c);
+      c.on('connect', function(){
+        c.subscribe(BASE + '#', {qos: 1});
+        connBadge(role === 'guest' ? '' : OP.connOK, '#34d399');
+        pub('sync', role === 'guest' ? {req: role, cid: CID, sid: SID, nick: nick} : {req: role, cid: CID}, 1);
+        flushOutbox();
+      });
+      c.on('reconnect', function(){ if(!anyConnected()) connBadge(OP.connRe, '#fbbf24'); });
+      c.on('close', function(){ if(!anyConnected()) connBadge(OP.connBad, '#f87171'); });
+      c.on('error', function(){});
+      c.on('message', onMessage);
     });
-    client.on('connect', function(){
-      client.subscribe(BASE + '#', {qos: 1});
-      connBadge(role === 'guest' ? '' : OP.connOK, '#34d399');
-      pub('sync', role === 'guest' ? {req: role, cid: CID, sid: SID, nick: nick} : {req: role, cid: CID}, 1);
-      flushOutbox();
-    });
-    client.on('reconnect', function(){ connBadge(OP.connRe, '#fbbf24'); });
-    client.on('close', function(){ connBadge(OP.connBad, '#f87171'); });
-    client.on('error', function(){});
-    client.on('message', onMessage);
     setInterval(presenceTick, 4000);
     setInterval(guestSweep, 5000);
   }
@@ -466,7 +479,8 @@ button,textarea{font-family:inherit}
     }else if(topic === BASE + 'stream'){
       if(role !== 'guest' || m.from === role || !m.id || !m.chunk || m.sid !== SID) return;
       if(seen(m.id)) return;
-      stream[m.id] = {t: (stream[m.id] ? stream[m.id].t : '') + m.chunk, ts: Date.now()};
+      if(stream[m.id] && stream[m.id].ci !== undefined && m.ci !== undefined && m.ci <= stream[m.id].ci) return;
+      stream[m.id] = {t: (stream[m.id] ? stream[m.id].t : '') + m.chunk, ts: Date.now(), ci: m.ci};
       waiting = false;
       stopGenTimer();
       renderGuestLog();
@@ -1193,7 +1207,7 @@ button,textarea{font-family:inherit}
       var i = 0;
       function next(){
         if(i < parts.length && !item.cancelled){
-          if(parts[i].trim()) pub('stream', {id: id, from: 'host', sid: sid, chunk: parts[i]});
+          if(parts[i].trim()) pub('stream', {id: id, from: 'host', sid: sid, chunk: parts[i], ci: i});
           i++;
           setTimeout(next, 180 + Math.random() * 340);
         }else{
